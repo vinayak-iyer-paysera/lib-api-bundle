@@ -6,6 +6,7 @@ namespace Paysera\Bundle\ApiBundle\Service\RoutingLoader;
 
 use Paysera\Bundle\ApiBundle\Annotation\RestAnnotationInterface;
 use Paysera\Bundle\ApiBundle\Attribute\RestAttributeInterface;
+use Paysera\Bundle\ApiBundle\Exception\ConfigurationException;
 use Paysera\Bundle\ApiBundle\Service\RestRequestHelper;
 use ReflectionClass;
 use ReflectionMethod;
@@ -17,6 +18,16 @@ use Symfony\Component\Routing\Route;
  */
 class RoutingAttributeLoader extends AttributeRouteControllerLoader
 {
+    private const ANNOTATION_NAMES = [
+        'Body',
+        'BodyContentType',
+        'PathAttribute',
+        'Query',
+        'RequiredPermissions',
+        'ResponseNormalization',
+        'Validation',
+    ];
+
     /**
      * @var RestRequestHelper
      */
@@ -59,8 +70,17 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
         $this->loadAttributes($route, $class, $method);
     }
 
+    /**
+     * @throws ConfigurationException
+     */
     private function loadAnnotations(Route $route, ReflectionClass $class, ReflectionMethod $method): void
     {
+        if (!property_exists($this, 'reader')) {
+            $this->refuseDocblockAnnotations($class, $method);
+
+            return;
+        }
+
         if (!isset($this->reader)) {
             return;
         }
@@ -86,6 +106,27 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
             $route,
             $this->annotationOptionsBuilder->buildOptions($annotations, $method)
         );
+    }
+
+    /**
+     * @throws ConfigurationException
+     */
+    private function refuseDocblockAnnotations(ReflectionClass $class, ReflectionMethod $method): void
+    {
+        $pattern = '/(?<!\w)@(?:[\w\\\\]+\\\\)?(' . implode('|', self::ANNOTATION_NAMES) . ')(?![\w\\\\])/';
+        preg_match_all($pattern, $class->getDocComment() . $method->getDocComment(), $matches);
+        $names = array_values(array_unique($matches[1]));
+        if ($names === []) {
+            return;
+        }
+
+        throw new ConfigurationException(sprintf(
+            '%s::%s() uses docblock annotations of paysera/lib-api-bundle (@%s), which Symfony 7 does not read. '
+            . 'Use the attributes of the same name from Paysera\\Bundle\\ApiBundle\\Attribute instead.',
+            $class->getName(),
+            $method->getName(),
+            implode(', @', $names)
+        ));
     }
 
     private function loadAttributes(Route $route, ReflectionClass $class, ReflectionMethod $method): void
