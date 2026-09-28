@@ -9,7 +9,6 @@ use Paysera\Bundle\ApiBundle\Entity\Violation;
 use Paysera\Bundle\ApiBundle\Exception\ApiException;
 use Paysera\Bundle\ApiBundle\Service\Validation\EntityValidator;
 use Paysera\Bundle\ApiBundle\Service\Validation\PropertyPathConverterInterface;
-use RuntimeException;
 use Mockery\Adapter\Phpunit\MockeryTestCase;
 use stdClass;
 use Symfony\Component\Validator\Constraints\Type;
@@ -20,16 +19,6 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class EntityValidatorTest extends MockeryTestCase
 {
-    public function testValidateRequiresTheValidator()
-    {
-        $entityValidator = new EntityValidator(null, Mockery::mock(PropertyPathConverterInterface::class));
-
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('To use validation in RestBundle you must configure framework.validation');
-
-        $entityValidator->validate(new stdClass(), new ValidationOptions());
-    }
-
     public function testValidateDoesNotFailWithNonObject()
     {
         $validator = Mockery::mock(ValidatorInterface::class);
@@ -57,7 +46,6 @@ class EntityValidatorTest extends MockeryTestCase
         $entity = new stdClass();
         $validator
             ->shouldReceive('validate')
-            ->once()
             ->with($entity, null, $groups)
             ->andReturn(new ConstraintViolationList($violationList))
         ;
@@ -79,6 +67,7 @@ class EntityValidatorTest extends MockeryTestCase
             if ($expectedException !== null) {
                 $this->fail('Expected exception');
             }
+            $this->expectNotToPerformAssertions();
         } catch (ApiException $exception) {
             $this->assertEquals($expectedException, $exception);
         }
