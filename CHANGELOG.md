@@ -15,10 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Configuration::getConfigTreeBuilder()` declares its `TreeBuilder` return type and `PayseraApiExtension::load()` declares
   `void`. Breaking for subclasses that override either method without the return type: add `: TreeBuilder` or `: void` to
   the override
-- On Symfony 7, loading a route whose controller configures it with the bundle's docblock annotations (`@Body`, `@Query`,
-  `@PathAttribute`, `@ResponseNormalization`, `@RequiredPermissions`, `@Validation`, `@BodyContentType`) fails with a
-  `ConfigurationException` that names the attributes to use instead. Symfony 7 does not read docblock annotations, so these
-  options were ignored without an error. Symfony 4.4 to 6.4 are unchanged
+- Symfony 7 reads no docblock annotations, so on Symfony 7 the bundle's docblock annotations (`@Body`, `@Query`,
+  `@PathAttribute`, `@ResponseNormalization`, `@RequiredPermissions`, `@Validation`, `@BodyContentType`) have no effect:
+  configure those routes with the attributes of the same name. Symfony 4.4 to 6.4 are unchanged
 - Optional parameters are declared nullable explicitly (`?Type $parameter = null`), as PHP 8.4 expects
 - CI runs the tests on Symfony 7 with PHP 8.2 and 8.3
 

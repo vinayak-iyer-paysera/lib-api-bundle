@@ -647,9 +647,8 @@ cursor and iterating this way until we have `"has_previous": false` is a reliabl
 
 Every option below exists as a docblock annotation (`Paysera\Bundle\ApiBundle\Annotation\*`) and, since 1.8.0, as a PHP
 attribute of the same name (`Paysera\Bundle\ApiBundle\Attribute\*`, read on Symfony 6.4 and later). On Symfony 7 use the
-attributes: Symfony 7 reads no docblock annotations, so loading a route whose controller still uses the bundle's docblock
-annotations fails with an error naming the attributes to use, and the routes themselves need `#[Route]` with
-`type: attribute` imports. The attributes take the same options, passed by name:
+attributes: Symfony 7 reads no docblock annotations, so the bundle's docblock annotations have no effect there, and the
+routes themselves need `#[Route]` with `type: attribute` imports. The attributes take the same options, passed by name:
 `@RequiredPermissions(permissions={"ROLE_ADMIN"})` becomes `#[RequiredPermissions(permissions: ['ROLE_ADMIN'])]`.
 
 ### `Body`
