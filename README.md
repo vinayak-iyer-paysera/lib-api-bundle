@@ -652,7 +652,9 @@ Whenever no annotation reader is available (on Symfony 7, and on Symfony 6.4 wit
 a route whose controller still uses the bundle's docblock annotations fails with a `ConfigurationException` naming them.
 The bundle then reads the docblocks of each routed class and method with Doctrine's `AnnotationReader`: a docblock Doctrine
 cannot parse, such as an unimported annotation or an unknown tag like `@note`, fails the route load with Doctrine's error
-(fix the docblock or list the tag in `@IgnoreAnnotation`), and `opcache.save_comments` must stay on.
+(fix the docblock or list the tag in `@IgnoreAnnotation`). Keep `opcache.save_comments` on (the PHP default): with it off,
+a docblock that carries an `@` tag can fail the route load with Doctrine's error, and where OPcache strips docblocks the
+check cannot see them and refuses nothing.
 The attributes take the same options, passed by name:
 `@RequiredPermissions(permissions={"ROLE_ADMIN"})` becomes `#[RequiredPermissions(permissions: ['ROLE_ADMIN'])]`.
 

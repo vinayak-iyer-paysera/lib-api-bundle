@@ -100,6 +100,10 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
      */
     private function refuseDocblockAnnotations(ReflectionClass $class, ReflectionMethod $method): void
     {
+        if (strpos($class->getDocComment() . $method->getDocComment(), '@') === false) {
+            return;
+        }
+
         $reader = new AnnotationReader();
         $annotations = array_merge($reader->getClassAnnotations($class), $reader->getMethodAnnotations($method));
         $names = [];
