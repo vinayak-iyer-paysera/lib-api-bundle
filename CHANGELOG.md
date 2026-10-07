@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On Symfony 7.1 and later, `LocaleListener` picks the locale from `Accept-Language` the same way as on older Symfony
   versions: a request asking for German (`de`) kept the default locale there
 
+### Security
+- On Symfony 6.4 with `framework.annotations` disabled, the bundle's docblock annotations, `@RequiredPermissions` among
+  them, were ignored without an error; a route that uses them now fails to load
+
 ## [1.8.2]
 ### Changed
 - CI allows packages with security advisories, so Symfony 3.4 and 4.4 jobs can install dependencies with Composer 2.10
