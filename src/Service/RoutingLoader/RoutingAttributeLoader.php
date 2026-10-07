@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Paysera\Bundle\ApiBundle\Service\RoutingLoader;
 
+use Doctrine\Common\Annotations\AnnotationReader;
 use Paysera\Bundle\ApiBundle\Annotation\RestAnnotationInterface;
 use Paysera\Bundle\ApiBundle\Attribute\RestAttributeInterface;
 use Paysera\Bundle\ApiBundle\Exception\ConfigurationException;
@@ -18,16 +19,6 @@ use Symfony\Component\Routing\Route;
  */
 class RoutingAttributeLoader extends AttributeRouteControllerLoader
 {
-    private const ANNOTATION_NAMES = [
-        'Body',
-        'BodyContentType',
-        'PathAttribute',
-        'Query',
-        'RequiredPermissions',
-        'ResponseNormalization',
-        'Validation',
-    ];
-
     /**
      * @var RestRequestHelper
      */
@@ -109,9 +100,15 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
      */
     private function refuseDocblockAnnotations(ReflectionClass $class, ReflectionMethod $method): void
     {
-        $pattern = '/(?<!\w)@(?:[\w\\\\]+\\\\)?(' . implode('|', self::ANNOTATION_NAMES) . ')(?![\w\\\\])/';
-        preg_match_all($pattern, $class->getDocComment() . $method->getDocComment(), $matches);
-        $names = array_values(array_unique($matches[1]));
+        $reader = new AnnotationReader();
+        $annotations = array_merge($reader->getClassAnnotations($class), $reader->getMethodAnnotations($method));
+        $names = [];
+        foreach ($annotations as $annotation) {
+            if ($annotation instanceof RestAnnotationInterface) {
+                $names[] = (new ReflectionClass($annotation))->getShortName();
+            }
+        }
+
         if ($names === []) {
             return;
         }
@@ -122,7 +119,7 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
             . 'Paysera\\Bundle\\ApiBundle\\Attribute instead.',
             $class->getName(),
             $method->getName(),
-            implode(', @', $names)
+            implode(', @', array_unique($names))
         ));
     }
 

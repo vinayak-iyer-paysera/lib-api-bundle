@@ -6,7 +6,12 @@ namespace Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader;
 
 use Paysera\Bundle\ApiBundle\Exception\ConfigurationException;
 use Paysera\Bundle\ApiBundle\Service\RoutingLoader\RoutingAttributeLoader;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\ClassAliasDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\DocblockOptionsOnAttributeRouteController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\FullyQualifiedDocblockController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\NamespaceAliasDocblockController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\NoBundleAnnotationController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OtherLibraryDocblockController;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Routing\Route;
@@ -43,6 +48,26 @@ class RoutingAttributeLoaderTest extends TestCase
             'short name' => [
                 DocblockOptionsOnAttributeRouteController::class,
                 self::buildRefusalMessage(DocblockOptionsOnAttributeRouteController::class, '@RequiredPermissions'),
+            ],
+            'namespace alias, on the class' => [
+                NamespaceAliasDocblockController::class,
+                self::buildRefusalMessage(NamespaceAliasDocblockController::class, '@RequiredPermissions'),
+            ],
+            'fully qualified name' => [
+                FullyQualifiedDocblockController::class,
+                self::buildRefusalMessage(FullyQualifiedDocblockController::class, '@RequiredPermissions'),
+            ],
+            'class alias' => [
+                ClassAliasDocblockController::class,
+                self::buildRefusalMessage(ClassAliasDocblockController::class, '@RequiredPermissions'),
+            ],
+            'annotation of another library with the same short name' => [
+                OtherLibraryDocblockController::class,
+                null,
+            ],
+            'no annotation of the bundle' => [
+                NoBundleAnnotationController::class,
+                null,
             ],
         ];
     }
