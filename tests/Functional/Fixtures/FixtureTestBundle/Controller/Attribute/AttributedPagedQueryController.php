@@ -10,7 +10,7 @@ use Paysera\Bundle\ApiBundle\Tests\Functional\Fixtures\FixtureTestBundle\Entity\
 use Paysera\Bundle\ApiBundle\Tests\Functional\Fixtures\FixtureTestBundle\Entity\PersistedEntityFilter;
 use Paysera\Bundle\ApiBundle\Tests\Functional\Fixtures\FixtureTestBundle\Repository\PersistedEntityRepository;
 use Paysera\Pagination\Entity\Pager;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 class AttributedPagedQueryController
 {
