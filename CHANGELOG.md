@@ -12,9 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - The Symfony components the bundle uses directly are required explicitly: `symfony/config`, `symfony/dependency-injection`,
   `symfony/http-foundation`, `symfony/http-kernel`, `symfony/property-access`, `symfony/routing` and `symfony/security-core`
-- `Configuration::getConfigTreeBuilder()` declares its `TreeBuilder` return type and `PayseraApiExtension::load()` declares
-  `void`. Breaking for subclasses that override either method without the return type: add `: TreeBuilder` or `: void` to
-  the override
+- `Configuration::getConfigTreeBuilder()` declares its `TreeBuilder` return type. Breaking for subclasses that override it
+  without the return type: add `: TreeBuilder` to the override
 - Loading a route whose controller still uses the bundle's docblock annotations (`@Body`, `@Query`, `@PathAttribute`,
   `@ResponseNormalization`, `@RequiredPermissions`, `@Validation`, `@BodyContentType`) fails with a
   `ConfigurationException` naming them whenever no annotation reader is available: on Symfony 7, and on Symfony 6.4

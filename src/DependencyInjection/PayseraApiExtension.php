@@ -17,7 +17,10 @@ use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 
 class PayseraApiExtension extends Extension
 {
-    public function load(array $configs, ContainerBuilder $container): void
+    /**
+     * @return void
+     */
+    public function load(array $configs, ContainerBuilder $container)
     {
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
