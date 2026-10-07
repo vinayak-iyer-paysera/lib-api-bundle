@@ -650,6 +650,9 @@ attribute of the same name (`Paysera\Bundle\ApiBundle\Attribute\*`, read on Symf
 attributes: Symfony 7 reads no docblock annotations, and the routes themselves need `#[Route]` with `type: attribute` imports.
 Whenever no annotation reader is available (on Symfony 7, and on Symfony 6.4 with `framework.annotations` disabled), loading
 a route whose controller still uses the bundle's docblock annotations fails with a `ConfigurationException` naming them.
+The bundle then reads the docblocks of each routed class and method with Doctrine's `AnnotationReader`: a docblock Doctrine
+cannot parse, such as an unimported annotation or an unknown tag like `@note`, fails the route load with Doctrine's error
+(fix the docblock or list the tag in `@IgnoreAnnotation`), and `opcache.save_comments` must stay on.
 The attributes take the same options, passed by name:
 `@RequiredPermissions(permissions={"ROLE_ADMIN"})` becomes `#[RequiredPermissions(permissions: ['ROLE_ADMIN'])]`.
 

@@ -17,8 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Loading a route whose controller still uses the bundle's docblock annotations (`@Body`, `@Query`, `@PathAttribute`,
   `@ResponseNormalization`, `@RequiredPermissions`, `@Validation`, `@BodyContentType`) fails with a
   `ConfigurationException` naming them whenever no annotation reader is available: on Symfony 7, and on Symfony 6.4
-  with `framework.annotations` disabled. Use the attributes of the same name. With an annotation reader, Symfony 4.4 to
-  6.4 are unchanged
+  with `framework.annotations` disabled. Use the attributes of the same name. Breaking for applications without an
+  annotation reader: the bundle reads the docblocks of each routed class and method with Doctrine's `AnnotationReader`,
+  so a docblock Doctrine cannot parse, such as an unimported annotation or an unknown tag like `@note`, fails the route
+  load with Doctrine's `AnnotationException` (fix the docblock or list the tag in `@IgnoreAnnotation`), and
+  `opcache.save_comments` must stay on. With an annotation reader, Symfony 3.4 to 6.4 are unchanged
 - Optional parameters are declared nullable explicitly (`?Type $parameter = null`), as PHP 8.4 expects
 - CI runs the tests on Symfony 7 with PHP 8.2 and 8.3
 
