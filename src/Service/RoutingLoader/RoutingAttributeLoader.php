@@ -75,13 +75,9 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
      */
     private function loadAnnotations(Route $route, ReflectionClass $class, ReflectionMethod $method): void
     {
-        if (!property_exists($this, 'reader')) {
+        if (!property_exists($this, 'reader') || !isset($this->reader)) {
             $this->refuseDocblockAnnotations($class, $method);
 
-            return;
-        }
-
-        if (!isset($this->reader)) {
             return;
         }
 
@@ -121,8 +117,9 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
         }
 
         throw new ConfigurationException(sprintf(
-            '%s::%s() uses docblock annotations of paysera/lib-api-bundle (@%s), which Symfony 7 does not read. '
-            . 'Use the attributes of the same name from Paysera\\Bundle\\ApiBundle\\Attribute instead.',
+            '%s::%s() uses docblock annotations of paysera/lib-api-bundle (@%s), which are not read because no '
+            . 'annotation reader is available. Use the attributes of the same name from '
+            . 'Paysera\\Bundle\\ApiBundle\\Attribute instead.',
             $class->getName(),
             $method->getName(),
             implode(', @', $names)
