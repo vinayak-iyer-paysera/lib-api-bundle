@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a route read from such a file fails to load with a `ConfigurationException` naming the setting. With an annotation
   reader, Symfony 3.4 to 6.4 are unchanged
 - Optional parameters are declared nullable explicitly (`?Type $parameter = null`), as PHP 8.4 expects
-- CI runs the tests on Symfony 7 with PHP 8.2 and 8.3
+- CI runs the tests on PHP 8.4, on Symfony 7 with PHP 8.2 to 8.4, and with lowest dependencies
 
 ### Fixed
 - On Symfony 7.1 and later, `LocaleListener` picks the locale from `Accept-Language` the same way as on older Symfony
