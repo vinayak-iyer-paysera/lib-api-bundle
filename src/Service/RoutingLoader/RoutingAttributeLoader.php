@@ -100,9 +100,16 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
      */
     private function refuseDocblockAnnotations(ReflectionClass $class, ReflectionMethod $method): void
     {
-        if (strpos($class->getDocComment() . $method->getDocComment(), '@') === false
-            && (new ReflectionClass(self::class))->getDocComment() !== false
-        ) {
+        if ((new ReflectionClass(self::class))->getDocComment() === false) {
+            throw new ConfigurationException(sprintf(
+                '%s::%s() cannot be checked for docblock annotations of paysera/lib-api-bundle because PHP strips '
+                . 'docblocks. Enable opcache.save_comments.',
+                $class->getName(),
+                $method->getName()
+            ));
+        }
+
+        if (strpos($class->getDocComment() . $method->getDocComment(), '@') === false) {
             return;
         }
 

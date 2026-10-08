@@ -653,9 +653,8 @@ a route whose controller still uses the bundle's docblock annotations fails with
 The bundle then reads the docblocks of each routed class and method with Doctrine's `AnnotationReader`: a docblock Doctrine
 cannot parse, such as an unimported annotation or an unknown tag like `@note`, fails the route load with Doctrine's error
 (fix the docblock or list the tag in `@IgnoreAnnotation`). Keep `opcache.save_comments` on (the PHP default): with it off,
-a docblock that carries an `@` tag can fail the route load with Doctrine's error, and where OPcache strips docblocks, route
-loading fails with Doctrine's message until `opcache.save_comments` is on. `doctrine/annotations` releases before 1.14.4
-and 2.0.2 do not check the setting, and the check then sees no docblock.
+a docblock that carries an `@` tag can fail the route load with Doctrine's error, and where PHP strips docblocks (OPcache
+with `opcache.save_comments` off), route loading fails with a `ConfigurationException` naming the setting.
 The attributes take the same options, passed by name:
 `@RequiredPermissions(permissions={"ROLE_ADMIN"})` becomes `#[RequiredPermissions(permissions: ['ROLE_ADMIN'])]`.
 
