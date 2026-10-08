@@ -650,11 +650,11 @@ attribute of the same name (`Paysera\Bundle\ApiBundle\Attribute\*`, read on Symf
 attributes: Symfony 7 reads no docblock annotations, and the routes themselves need `#[Route]` with `type: attribute` imports.
 Whenever no annotation reader is available (on Symfony 7, and on Symfony 6.4 with `framework.annotations` disabled), loading
 a route whose controller still uses the bundle's docblock annotations fails with a `ConfigurationException` naming them.
-The bundle then reads the docblocks of each routed class and method with Doctrine's `AnnotationReader`: a docblock Doctrine
-cannot parse, such as an unimported annotation or an unknown tag like `@note`, fails the route load with Doctrine's error
-(fix the docblock or list the tag in `@IgnoreAnnotation`). Keep `opcache.save_comments` on (the PHP default): with it off,
-a docblock that carries an `@` tag can fail the route load with Doctrine's error, and where PHP strips docblocks (OPcache
-with `opcache.save_comments` off), route loading fails with a `ConfigurationException` naming the setting.
+Only docblocks in files that import `Paysera\Bundle\ApiBundle\Annotation` or name it fully qualified are read (the
+controller's file, or that of the parent class or trait declaring the routed method), and only the bundle's annotations
+in them; unknown tags and other libraries' imported annotations are left alone. Where PHP strips docblocks (OPcache with
+`opcache.save_comments` off), a route read from such a file fails to load with a `ConfigurationException` naming the
+setting.
 The attributes take the same options, passed by name:
 `@RequiredPermissions(permissions={"ROLE_ADMIN"})` becomes `#[RequiredPermissions(permissions: ['ROLE_ADMIN'])]`.
 

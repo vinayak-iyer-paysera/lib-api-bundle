@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Paysera\Bundle\ApiBundle\Service\RoutingLoader;
 
-use Doctrine\Common\Annotations\AnnotationReader;
+use Doctrine\Common\Annotations\DocParser;
+use Doctrine\Common\Annotations\PhpParser;
 use Paysera\Bundle\ApiBundle\Annotation\RestAnnotationInterface;
 use Paysera\Bundle\ApiBundle\Attribute\RestAttributeInterface;
 use Paysera\Bundle\ApiBundle\Exception\ConfigurationException;
@@ -19,6 +20,8 @@ use Symfony\Component\Routing\Route;
  */
 class RoutingAttributeLoader extends AttributeRouteControllerLoader
 {
+    private const ANNOTATION_NAMESPACE = 'Paysera\\Bundle\\ApiBundle\\Annotation\\';
+
     /**
      * @var RestRequestHelper
      */
@@ -33,6 +36,16 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
      * @var RestRequestAttributeOptionsBuilder
      */
     private $attributeOptionsBuilder;
+
+    /**
+     * @var array<string, array<string, string>|null>
+     */
+    private $annotationImports = [];
+
+    /**
+     * @var DocParser|null
+     */
+    private $docParser;
 
     public function setRequestHelper(RestRequestHelper $restRequestHelper)
     {
@@ -100,6 +113,12 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
      */
     private function refuseDocblockAnnotations(ReflectionClass $class, ReflectionMethod $method): void
     {
+        $classImports = $this->getAnnotationImports($class);
+        $methodImports = $this->getMethodAnnotationImports($method);
+        if ($classImports === null && $methodImports === null) {
+            return;
+        }
+
         if ((new ReflectionClass(self::class))->getDocComment() === false) {
             throw new ConfigurationException(sprintf(
                 '%s::%s() cannot be checked for docblock annotations of paysera/lib-api-bundle because PHP strips '
@@ -109,12 +128,14 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
             ));
         }
 
-        if (strpos($class->getDocComment() . $method->getDocComment(), '@') === false) {
-            return;
-        }
-
-        $reader = new AnnotationReader();
-        $annotations = array_merge($reader->getClassAnnotations($class), $reader->getMethodAnnotations($method));
+        $parser = $this->getDocParser();
+        $parser->setImports($classImports ?? []);
+        $annotations = $parser->parse((string)$class->getDocComment(), 'class ' . $class->getName());
+        $parser->setImports($methodImports ?? []);
+        $annotations = array_merge($annotations, $parser->parse(
+            (string)$method->getDocComment(),
+            sprintf('method %s::%s()', $class->getName(), $method->getName())
+        ));
         $names = [];
         foreach ($annotations as $annotation) {
             if ($annotation instanceof RestAnnotationInterface) {
@@ -134,6 +155,61 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
             $method->getName(),
             implode(', @', array_unique($names))
         ));
+    }
+
+    /**
+     * @return array<string, string>|null
+     */
+    private function getMethodAnnotationImports(ReflectionMethod $method): ?array
+    {
+        $class = $method->getDeclaringClass();
+        $imports = $this->getAnnotationImports($class);
+        foreach ($class->getTraits() as $trait) {
+            if ($trait->getFileName() !== $method->getFileName() || !$trait->hasMethod($method->getName())) {
+                continue;
+            }
+
+            $traitImports = $this->getAnnotationImports($trait);
+            if ($traitImports !== null) {
+                $imports = array_merge($imports ?? [], $traitImports);
+            }
+        }
+
+        return $imports;
+    }
+
+    /**
+     * @return array<string, string>|null null when the file of the class neither imports nor names the annotations
+     */
+    private function getAnnotationImports(ReflectionClass $class): ?array
+    {
+        $name = $class->getName();
+        if (!array_key_exists($name, $this->annotationImports)) {
+            $imports = array_filter(
+                (new PhpParser())->parseUseStatements($class),
+                static function (string $import): bool {
+                    $namespace = ltrim($import, '\\') . '\\';
+
+                    return strpos($namespace, self::ANNOTATION_NAMESPACE) === 0
+                        || strpos(self::ANNOTATION_NAMESPACE, $namespace) === 0;
+                }
+            );
+            $file = $class->getFileName();
+            $named = $file !== false && strpos((string)file_get_contents($file), self::ANNOTATION_NAMESPACE) !== false;
+            $this->annotationImports[$name] = $imports !== [] || $named ? $imports : null;
+        }
+
+        return $this->annotationImports[$name];
+    }
+
+    private function getDocParser(): DocParser
+    {
+        if ($this->docParser === null) {
+            $this->docParser = new DocParser();
+            $this->docParser->setIgnoreNotImportedAnnotations(true);
+        }
+
+        return $this->docParser;
     }
 
     private function loadAttributes(Route $route, ReflectionClass $class, ReflectionMethod $method): void
