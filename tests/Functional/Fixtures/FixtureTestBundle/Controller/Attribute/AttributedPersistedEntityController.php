@@ -11,14 +11,14 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class AttributedPersistedEntityController
 {
-    #[Route(path: '/persisted-entities/{identifier}', methods: ['GET'])]
+    #[Route(path: '/attributed/persisted-entities/{identifier}', methods: ['GET'])]
     #[PathAttribute(parameterName: 'entity', pathPartName: 'identifier')]
     public function findPersistedEntity(PersistedEntity $entity): Response
     {
         return new Response((string)$entity->getId());
     }
 
-    #[Route(path: '/simple-persisted-entities/{identifier}', methods: ['GET'])]
+    #[Route(path: '/attributed/simple-persisted-entities/{identifier}', methods: ['GET'])]
     #[PathAttribute(parameterName: 'entity', pathPartName: 'identifier')]
     public function findSimplePersistedEntity(SimplePersistedEntity $entity): Response
     {

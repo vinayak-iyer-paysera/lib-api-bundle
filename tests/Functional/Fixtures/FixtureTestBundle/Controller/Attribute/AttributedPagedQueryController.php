@@ -21,7 +21,7 @@ class AttributedPagedQueryController
         $this->entityManager = $entityManager;
     }
 
-    #[Route(path: '/paged-query/simple', methods: ['GET'])]
+    #[Route(path: '/attributed/paged-query/simple', methods: ['GET'])]
     #[Query(parameterName: 'pager')]
     #[Query(parameterName: 'filter')]
     public function findSimplePersistedEntities(Pager $pager, PersistedEntityFilter $filter): PagedQuery

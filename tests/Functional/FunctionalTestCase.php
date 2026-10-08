@@ -43,6 +43,16 @@ abstract class FunctionalTestCase extends TestCase
         return $this->kernel->getContainer();
     }
 
+    protected function skipUnlessRoutesAreLoaded(string $routes): void
+    {
+        if ($routes === 'attributed' && !TestHelper::phpAttributeSupportExists()) {
+            $this->markTestSkipped('Unsupported environment');
+        }
+        if ($routes === 'annotated' && !TestHelper::docblockRoutingSupportExists()) {
+            $this->markTestSkipped('Symfony 7 reads no @Route docblocks');
+        }
+    }
+
     protected function tearDown(): void
     {
         $container = $this->kernel->getContainer();
