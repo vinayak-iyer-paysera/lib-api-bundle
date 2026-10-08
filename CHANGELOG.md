@@ -22,8 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so a docblock Doctrine cannot parse, such as an unimported annotation or an unknown tag like `@note`, fails the route
   load with Doctrine's `AnnotationException` (fix the docblock or list the tag in `@IgnoreAnnotation`). Keep
   `opcache.save_comments` on (the PHP default): with it off, a docblock that carries an `@` tag can fail the route load
-  with Doctrine's error, and where OPcache strips docblocks the check cannot see them and refuses nothing, as before
-  this release. With an annotation reader, Symfony 3.4 to 6.4 are unchanged
+  with Doctrine's error, and where OPcache strips docblocks, route loading fails with Doctrine's message until
+  `opcache.save_comments` is on. `doctrine/annotations` releases before 1.14.4 and 2.0.2 do not check the setting, and
+  the check then sees no docblock. With an annotation reader, Symfony 3.4 to 6.4 are unchanged
 - Optional parameters are declared nullable explicitly (`?Type $parameter = null`), as PHP 8.4 expects
 - CI runs the tests on Symfony 7 with PHP 8.2 and 8.3
 
