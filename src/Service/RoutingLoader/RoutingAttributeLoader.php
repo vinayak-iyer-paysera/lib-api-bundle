@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Paysera\Bundle\ApiBundle\Service\RoutingLoader;
 
+use Doctrine\Common\Annotations\Annotation\Target;
+use Doctrine\Common\Annotations\DocParser;
 use Doctrine\Common\Annotations\PhpParser;
 use Paysera\Bundle\ApiBundle\Annotation\RestAnnotationInterface;
 use Paysera\Bundle\ApiBundle\Attribute\RestAttributeInterface;
-use Paysera\Bundle\ApiBundle\Exception\ConfigurationException;
 use Paysera\Bundle\ApiBundle\Service\RestRequestHelper;
 use ReflectionClass;
 use ReflectionMethod;
@@ -20,7 +21,6 @@ use Symfony\Component\Routing\Route;
 class RoutingAttributeLoader extends AttributeRouteControllerLoader
 {
     private const ANNOTATION_NAMESPACE = 'Paysera\\Bundle\\ApiBundle\\Annotation\\';
-    private const DOCBLOCK_TAG_PATTERN = '/(?<![^\\s*])@(\\\\*[a-z_][\\w\\\\]*(?:(?<=\\\\)[\\s*]+[a-z_][\\w\\\\]*)*)/i';
 
     /**
      * @var RestRequestHelper
@@ -38,14 +38,14 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
     private $attributeOptionsBuilder;
 
     /**
-     * @var array<string, string[]>
+     * @var DocParser|null
      */
-    private $docblockAnnotations = [];
+    private $docParser;
 
     /**
-     * @var array<string, string>|null
+     * @var array<string, array<string, string>>
      */
-    private $annotationClasses;
+    private $imports = [];
 
     public function setRequestHelper(RestRequestHelper $restRequestHelper)
     {
@@ -74,25 +74,28 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
         $this->loadAttributes($route, $class, $method);
     }
 
-    /**
-     * @throws ConfigurationException
-     */
     private function loadAnnotations(Route $route, ReflectionClass $class, ReflectionMethod $method): void
     {
-        if (!property_exists($this, 'reader') || !isset($this->reader)) {
-            $this->refuseDocblockAnnotations($class, $method);
-
-            return;
+        if (isset($this->reader)) {
+            $classAnnotations = $this->reader->getClassAnnotations($class);
+            $methodAnnotations = $this->reader->getMethodAnnotations($method);
+        } else {
+            $classAnnotations = $this->parseDocblock(
+                $class->getDocComment(),
+                $class,
+                Target::TARGET_CLASS,
+                'class ' . $class->getName()
+            );
+            $methodAnnotations = $this->parseDocblock(
+                $method->getDocComment(),
+                $method->getDeclaringClass(),
+                Target::TARGET_METHOD,
+                'method ' . $method->getDeclaringClass()->getName() . '::' . $method->getName() . '()'
+            );
         }
 
         $annotations = [];
-        foreach ($this->reader->getClassAnnotations($class) as $annotation) {
-            if ($annotation instanceof RestAnnotationInterface) {
-                $annotations[] = $annotation;
-            }
-        }
-
-        foreach ($this->reader->getMethodAnnotations($method) as $annotation) {
+        foreach (array_merge($classAnnotations, $methodAnnotations) as $annotation) {
             if ($annotation instanceof RestAnnotationInterface) {
                 $annotations[] = $annotation;
             }
@@ -109,128 +112,55 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
     }
 
     /**
-     * @throws ConfigurationException
+     * @param string|false $docComment
+     * @return object[]
      */
-    private function refuseDocblockAnnotations(ReflectionClass $class, ReflectionMethod $method): void
+    private function parseDocblock($docComment, ReflectionClass $importingClass, int $target, string $context): array
     {
-        $contexts = [[$class, $class], [$this->getMethodOwner($method), $method->getDeclaringClass()]];
-        foreach ($contexts as [$owner, $importer]) {
-            $names = $this->getDocblockAnnotations($owner, $importer);
-            if ($names !== []) {
-                throw new ConfigurationException(sprintf(
-                    'Cannot load the route of %s::%s(): %s uses docblock annotations of paysera/lib-api-bundle (@%s), '
-                    . 'which are not read because no annotation reader is available. Use the attributes of the same '
-                    . 'name from Paysera\\Bundle\\ApiBundle\\Attribute instead.',
-                    $class->getName(),
-                    $method->getName(),
-                    $owner->getFileName(),
-                    implode(', @', $names)
-                ));
-            }
-        }
-    }
-
-    private function getMethodOwner(ReflectionMethod $method): ReflectionClass
-    {
-        $owner = $method->getDeclaringClass();
-        $traits = $owner->getTraits();
-        while (
-            ($owner->getFileName() !== $method->getFileName() || !$owner->hasMethod($method->getName()))
-            && $traits !== []
-        ) {
-            $owner = array_shift($traits);
-            $traits = array_merge($traits, $owner->getTraits());
-        }
-
-        return $owner;
-    }
-
-    /**
-     * @return string[]
-     */
-    private function getDocblockAnnotations(ReflectionClass $owner, ReflectionClass $importer): array
-    {
-        $key = $owner->getFileName() . '|' . $importer->getName();
-        if (!array_key_exists($key, $this->docblockAnnotations)) {
-            $this->docblockAnnotations[$key] = $this->readDocblockAnnotations($owner, $importer);
-        }
-
-        return $this->docblockAnnotations[$key];
-    }
-
-    /**
-     * @return string[]
-     */
-    private function readDocblockAnnotations(ReflectionClass $owner, ReflectionClass $importer): array
-    {
-        $parser = new PhpParser();
-        $imports = array_filter(
-            array_merge($parser->parseUseStatements($importer), $parser->parseUseStatements($owner)),
-            [$this, 'isInAnnotationNamespace']
-        );
-        $namespace = $importer->getNamespaceName();
-        $source = (string)file_get_contents((string)$owner->getFileName());
-        if (
-            $imports === []
-            && !$this->isInAnnotationNamespace($namespace)
-            && stripos($source, self::ANNOTATION_NAMESPACE) === false
-        ) {
+        if ($docComment === false) {
             return [];
         }
 
-        $names = [];
-        foreach (token_get_all($source) as $token) {
-            if (is_array($token) && $token[0] === T_DOC_COMMENT) {
-                preg_match_all(self::DOCBLOCK_TAG_PATTERN, $token[1], $matches);
-                foreach ($matches[1] as $tag) {
-                    $tag = (string)preg_replace('/\\\\[\\s*]+/', '\\\\', $tag);
-                    $names[] = $this->resolveAnnotation($tag, $imports, $namespace);
-                }
-            }
+        if ($this->docParser === null) {
+            $this->docParser = new DocParser();
+            $this->docParser->setIgnoreNotImportedAnnotations(true);
         }
+        $this->docParser->setTarget($target);
+        $this->docParser->setImports($this->getImports($importingClass));
 
-        return array_values(array_unique(array_filter($names)));
-    }
-
-    /**
-     * @param array<string, string> $imports
-     */
-    private function resolveAnnotation(string $tag, array $imports, string $namespace): ?string
-    {
-        $separator = strpos($tag, '\\');
-        $alias = strtolower($separator === false ? $tag : substr($tag, 0, $separator));
-        $candidates = [$tag, $namespace . '\\' . $tag];
-        if (isset($imports[$alias])) {
-            $candidates[] = $imports[$alias] . ($separator === false ? '' : substr($tag, $separator));
-        }
-
-        $annotationClasses = $this->getAnnotationClasses();
-        foreach ($candidates as $candidate) {
-            $name = $annotationClasses[strtolower(ltrim($candidate, '\\'))] ?? null;
-            if ($name !== null) {
-                return $name;
-            }
-        }
-
-        return null;
+        return $this->docParser->parse($docComment, $context);
     }
 
     /**
      * @return array<string, string>
      */
-    private function getAnnotationClasses(): array
+    private function getImports(ReflectionClass $class): array
     {
-        if ($this->annotationClasses === null) {
-            $this->annotationClasses = [];
-            foreach (scandir(dirname(__DIR__, 2) . '/Annotation') ?: [] as $file) {
-                if (substr($file, -4) === '.php') {
-                    $name = basename($file, '.php');
-                    $this->annotationClasses[strtolower(self::ANNOTATION_NAMESPACE . $name)] = $name;
-                }
+        $name = $class->getName();
+        if (!isset($this->imports[$name])) {
+            $this->imports[$name] = $this->getAnnotationUseStatements($class);
+            if ($this->isInAnnotationNamespace($class->getNamespaceName())) {
+                $this->imports[$name]['__NAMESPACE__'] = $class->getNamespaceName();
             }
         }
 
-        return $this->annotationClasses;
+        return $this->imports[$name];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function getAnnotationUseStatements(ReflectionClass $class): array
+    {
+        $useStatements = array_filter(
+            (new PhpParser())->parseUseStatements($class),
+            [$this, 'isInAnnotationNamespace']
+        );
+        foreach ($class->getTraits() as $trait) {
+            $useStatements = array_merge($useStatements, $this->getAnnotationUseStatements($trait));
+        }
+
+        return $useStatements;
     }
 
     private function isInAnnotationNamespace(string $name): bool

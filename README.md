@@ -656,15 +656,14 @@ cursor and iterating this way until we have `"has_previous": false` is a reliabl
 ## Annotations/Attributes reference
 
 Every option below exists as a docblock annotation (`Paysera\Bundle\ApiBundle\Annotation\*`) and, since 1.8.0, as a PHP
-attribute of the same name (`Paysera\Bundle\ApiBundle\Attribute\*`, read on Symfony 6.4 and later). On Symfony 7 use the
-attributes: Symfony 7 reads no docblock annotations, and the routes themselves need `#[Route]` with `type: attribute` imports.
-Whenever no annotation reader is available (on Symfony 7, on Symfony 6.4 with `framework.annotations` disabled, and with
-FrameworkBundle 6.4 and `symfony/routing` 7), loading a route fails with a `ConfigurationException` when the
-controller's file, or the file of the parent class or trait declaring the routed method, uses the bundle's docblock
-annotations; the message names the file and the annotations. The docblocks are read from those source files, so
-`opcache.save_comments` does not matter. Only files that import `Paysera\Bundle\ApiBundle\Annotation`, name it fully
-qualified or declare their class in it (or in a namespace above it) are read, and only the bundle's annotations in them;
-unknown tags and other libraries' imported annotations are left alone.
+attribute of the same name (`Paysera\Bundle\ApiBundle\Attribute\*`, read on Symfony 6.4 and later). On Symfony 7 the
+routes themselves need `#[Route]` with `type: attribute` imports, because Symfony 7 reads no `@Route` docblocks. The
+bundle's docblock annotations keep working on such routes: where no annotation reader is available (on Symfony 7, on
+Symfony 6.4 with `framework.annotations` disabled, and with FrameworkBundle 6.4 and `symfony/routing` 7), the bundle reads
+the docblocks of the controller class and of the routed method with Doctrine's `DocParser`. Names resolve only through the
+use statements that point into `Paysera\Bundle\ApiBundle\Annotation` or a namespace above it, of the class declaring the
+method and of every trait it uses, so unknown tags and other libraries' imported annotations are ignored. As with
+Doctrine's annotation reader, PHP must keep docblocks (`opcache.save_comments=1`).
 The attributes take the same options, passed by name:
 `@RequiredPermissions(permissions={"ROLE_ADMIN"})` becomes `#[RequiredPermissions(permissions: ['ROLE_ADMIN'])]`.
 

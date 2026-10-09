@@ -42,6 +42,39 @@ class FunctionalAnnotationsTest extends FunctionalTestCase
         $this->makeTest('attributed', $expectedResponse, $request, $extraResponseVersion);
     }
 
+    /**
+     * @dataProvider docblockOptionsOnAttributeRouteProvider
+     */
+    public function testDocblockOptionsOnAttributeRoute(
+        int $expectedStatusCode,
+        string $expectedContent,
+        ?string $username
+    ): void {
+        $this->makeTest(
+            'attributed',
+            new Response($expectedContent, $expectedStatusCode),
+            $this->createRequest('GET', '/docblock/testRequiredPermissions', null, [], $username)
+        );
+    }
+
+    public static function docblockOptionsOnAttributeRouteProvider(): array
+    {
+        return [
+            'without auth' => [
+                401,
+                '{"error":"unauthorized","error_description":"This API endpoint requires authentication, none found"}',
+                null,
+            ],
+            'without enough permissions' => [
+                403,
+                '{"error":"forbidden",'
+                . '"error_description":"Access to this API endpoint is forbidden for current client"}',
+                'user',
+            ],
+            'with all needed permissions' => [200, 'OK', 'admin'],
+        ];
+    }
+
     private function makeTest(
         string $pathPrefix,
         Response $expectedResponse,

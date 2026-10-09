@@ -8,22 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Support for Symfony 7.4
 - Support for `psr/log` 3
+- Where no annotation reader is available (on Symfony 7, on Symfony 6.4 with `framework.annotations` disabled, and with
+  FrameworkBundle 6.4 and `symfony/routing` 7), the bundle reads its own docblock annotations on `#[Route]` methods and
+  their classes with Doctrine's `DocParser`. Names resolve only through the use statements that point into
+  `Paysera\Bundle\ApiBundle\Annotation` or a namespace above it, of the declaring class and of every trait it uses, so
+  unknown tags and other libraries' imported annotations are ignored. As with Doctrine's annotation reader, PHP must
+  keep docblocks (`opcache.save_comments=1`)
 
 ### Changed
 - The Symfony components the bundle uses directly are required explicitly: `symfony/config`, `symfony/dependency-injection`,
   `symfony/http-foundation`, `symfony/http-kernel`, `symfony/property-access`, `symfony/routing` and `symfony/security-core`
 - `Configuration::getConfigTreeBuilder()` declares its `TreeBuilder` return type. Breaking for subclasses that override it
   without the return type: add `: TreeBuilder` to the override
-- Loading a route whose controller still uses the bundle's docblock annotations (`@Body`, `@Query`, `@PathAttribute`,
-  `@ResponseNormalization`, `@RequiredPermissions`, `@Validation`, `@BodyContentType`) fails with a
-  `ConfigurationException` naming them whenever no annotation reader is available: on Symfony 7, on Symfony 6.4 with
-  `framework.annotations` disabled, and with FrameworkBundle 6.4 and `symfony/routing` 7. Use the attributes of the same
-  name. The docblocks are read from the source of
-  the controller's file and of the file of the parent class or trait declaring the routed method, so
-  `opcache.save_comments` does not matter. Only files that import `Paysera\Bundle\ApiBundle\Annotation`, name it fully
-  qualified or declare their class in it (or in a namespace above it) are read, and only the bundle's annotations in
-  them; unknown tags and other libraries' imported annotations are left alone. With an annotation reader, Symfony 3.4 to
-  6.4 are unchanged
 - Optional parameters are declared nullable explicitly (`?Type $parameter = null`), as PHP 8.4 expects
 - CI runs the tests on PHP 8.4, on Symfony 7 with PHP 8.2 to 8.4, and with lowest dependencies
 
@@ -34,8 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - On Symfony 6.4 with `framework.annotations` disabled, and with FrameworkBundle 6.4 and `symfony/routing` 7, the
-  bundle's docblock annotations, `@RequiredPermissions` among them, were ignored without an error; a route that uses
-  them now fails to load
+  bundle's docblock annotations, `@RequiredPermissions` among them, were ignored without an error; they are now applied
 
 ## [1.8.2]
 ### Changed
