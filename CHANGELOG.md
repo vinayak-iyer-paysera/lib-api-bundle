@@ -28,7 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - On Symfony 7.1 and later, `LocaleListener` picks the locale from `Accept-Language` the same way as on older Symfony
-  versions: a request asking for German (`de`) kept the default locale there
+  versions: there a request for `de-DE`, and from Symfony 7.3 also one for `de`, kept the default locale, because `de`
+  matched the internal `default` placeholder
 
 ### Security
 - On Symfony 6.4 with `framework.annotations` disabled, the bundle's docblock annotations, `@RequiredPermissions` among
