@@ -152,7 +152,7 @@ Controller example using attributes:
 <?php
 declare(strict_types=1);
 
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Paysera\Bundle\ApiBundle\Attribute\Body;
 
 class ApiController
@@ -184,6 +184,16 @@ Don't forget to also import your controller (or `Controller` directory) into rou
 acme_something:
     resource: "@AcmeSomethingBundle/Controller/"
     type: annotation
+    prefix: /rest/v1/
+```
+
+Symfony 7 does not accept `type: annotation`. There, import controllers that use attributes with `type: attribute`,
+which Symfony accepts since 6.1 (Symfony 7.4 deprecates XML route files):
+
+```yaml
+acme_something:
+    resource: "@AcmeSomethingBundle/Controller/"
+    type: attribute
     prefix: /rest/v1/
 ```
 
@@ -257,7 +267,7 @@ Controller example using attributes:
 <?php
 declare(strict_types=1);
 
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Paysera\Bundle\ApiBundle\Attribute\PathAttribute;
 
 class ApiController
@@ -395,7 +405,7 @@ Controller example using attributes:
 <?php
 declare(strict_types=1);
 
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Paysera\Bundle\ApiBundle\Attribute\Query;
 use Paysera\Pagination\Entity\Pager;
 use Paysera\Bundle\ApiBundle\Entity\PagedQuery;
