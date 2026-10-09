@@ -4,19 +4,15 @@ declare(strict_types=1);
 
 namespace Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures;
 
-use Paysera\Bundle\ApiBundle\Annotation\Body;
 use Symfony\Component\Routing\Attribute\Route;
 
-class UnusedBundleImportController
+class DoubleBackslashDocblockController
 {
     /**
-     * Ask api@Body.example.com.
-     *
-     * @return void
+     * @\\Paysera\Bundle\ApiBundle\Annotation\RequiredPermissions(permissions={"ROLE_ADMIN"})
      */
-    #[Route('/unused-bundle-import', methods: ['GET'])]
+    #[Route('/double-backslash', methods: ['GET'])]
     public function show()
     {
-        /* @Body */
     }
 }

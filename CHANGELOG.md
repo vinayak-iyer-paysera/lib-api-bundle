@@ -16,13 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without the return type: add `: TreeBuilder` to the override
 - Loading a route whose controller still uses the bundle's docblock annotations (`@Body`, `@Query`, `@PathAttribute`,
   `@ResponseNormalization`, `@RequiredPermissions`, `@Validation`, `@BodyContentType`) fails with a
-  `ConfigurationException` naming them whenever no annotation reader is available: on Symfony 7, and on Symfony 6.4
-  with `framework.annotations` disabled. Use the attributes of the same name. Only docblocks in files that import
-  `Paysera\Bundle\ApiBundle\Annotation` or name it fully qualified are read (the controller's file, or that of the
-  parent class or trait declaring the routed method), and only the bundle's annotations in them; unknown tags and other
-  libraries' imported annotations are left alone. Where PHP strips docblocks (OPcache with `opcache.save_comments` off),
-  a route read from such a file fails to load with a `ConfigurationException` naming the setting. With an annotation
-  reader, Symfony 3.4 to 6.4 are unchanged
+  `ConfigurationException` naming them whenever no annotation reader is available: on Symfony 7, on Symfony 6.4 with
+  `framework.annotations` disabled, and with FrameworkBundle 6.4 and `symfony/routing` 7. Use the attributes of the same
+  name. The docblocks are read from the source of
+  the controller's file and of the file of the parent class or trait declaring the routed method, so
+  `opcache.save_comments` does not matter. Only files that import `Paysera\Bundle\ApiBundle\Annotation`, name it fully
+  qualified or declare their class in it (or in a namespace above it) are read, and only the bundle's annotations in
+  them; unknown tags and other libraries' imported annotations are left alone. With an annotation reader, Symfony 3.4 to
+  6.4 are unchanged
 - Optional parameters are declared nullable explicitly (`?Type $parameter = null`), as PHP 8.4 expects
 - CI runs the tests on PHP 8.4, on Symfony 7 with PHP 8.2 to 8.4, and with lowest dependencies
 
@@ -32,8 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matched the internal `default` placeholder
 
 ### Security
-- On Symfony 6.4 with `framework.annotations` disabled, the bundle's docblock annotations, `@RequiredPermissions` among
-  them, were ignored without an error; a route that uses them now fails to load
+- On Symfony 6.4 with `framework.annotations` disabled, and with FrameworkBundle 6.4 and `symfony/routing` 7, the
+  bundle's docblock annotations, `@RequiredPermissions` among them, were ignored without an error; a route that uses
+  them now fails to load
 
 ## [1.8.2]
 ### Changed

@@ -4,19 +4,16 @@ declare(strict_types=1);
 
 namespace Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures;
 
-use Paysera\Bundle\ApiBundle\Annotation\Body;
+use Paysera\Bundle\ApiBundle\annotation\RequiredPermissions;
 use Symfony\Component\Routing\Attribute\Route;
 
-class UnusedBundleImportController
+class MiscasedImportDocblockController
 {
     /**
-     * Ask api@Body.example.com.
-     *
-     * @return void
+     * @RequiredPermissions(permissions={"ROLE_ADMIN"})
      */
-    #[Route('/unused-bundle-import', methods: ['GET'])]
+    #[Route('/miscased-import', methods: ['GET'])]
     public function show()
     {
-        /* @Body */
     }
 }

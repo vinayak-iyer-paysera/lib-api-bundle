@@ -658,13 +658,13 @@ cursor and iterating this way until we have `"has_previous": false` is a reliabl
 Every option below exists as a docblock annotation (`Paysera\Bundle\ApiBundle\Annotation\*`) and, since 1.8.0, as a PHP
 attribute of the same name (`Paysera\Bundle\ApiBundle\Attribute\*`, read on Symfony 6.4 and later). On Symfony 7 use the
 attributes: Symfony 7 reads no docblock annotations, and the routes themselves need `#[Route]` with `type: attribute` imports.
-Whenever no annotation reader is available (on Symfony 7, and on Symfony 6.4 with `framework.annotations` disabled), loading
-a route whose controller still uses the bundle's docblock annotations fails with a `ConfigurationException` naming them.
-Only docblocks in files that import `Paysera\Bundle\ApiBundle\Annotation` or name it fully qualified are read (the
-controller's file, or that of the parent class or trait declaring the routed method), and only the bundle's annotations
-in them; unknown tags and other libraries' imported annotations are left alone. Where PHP strips docblocks (OPcache with
-`opcache.save_comments` off), a route read from such a file fails to load with a `ConfigurationException` naming the
-setting.
+Whenever no annotation reader is available (on Symfony 7, on Symfony 6.4 with `framework.annotations` disabled, and with
+FrameworkBundle 6.4 and `symfony/routing` 7), loading a route fails with a `ConfigurationException` when the
+controller's file, or the file of the parent class or trait declaring the routed method, uses the bundle's docblock
+annotations; the message names the file and the annotations. The docblocks are read from those source files, so
+`opcache.save_comments` does not matter. Only files that import `Paysera\Bundle\ApiBundle\Annotation`, name it fully
+qualified or declare their class in it (or in a namespace above it) are read, and only the bundle's annotations in them;
+unknown tags and other libraries' imported annotations are left alone.
 The attributes take the same options, passed by name:
 `@RequiredPermissions(permissions={"ROLE_ADMIN"})` becomes `#[RequiredPermissions(permissions: ['ROLE_ADMIN'])]`.
 
