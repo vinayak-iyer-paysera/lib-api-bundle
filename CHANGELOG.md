@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `symfony/http-foundation`, `symfony/http-kernel`, `symfony/property-access`, `symfony/routing` and `symfony/security-core`
 - `Configuration::getConfigTreeBuilder()` declares its `TreeBuilder` return type. Breaking for subclasses that override it
   without the return type: add `: TreeBuilder` to the override
+- The services are registered by `PayseraApiExtension` instead of the XML files in `Resources/config`, which are
+  removed, so Symfony 7.4 no longer reports that the XML configuration format is deprecated. The service ids, classes,
+  arguments, method calls, tags and visibility are unchanged
 - `PayseraApiExtension` extends `Symfony\Component\DependencyInjection\Extension\Extension` instead of HttpKernel's
   `Extension`, which is internal since Symfony 7.1. Breaking for subclasses that call `addAnnotatedClassesToCompile()`
   or `getAnnotatedClassesToCompile()`, which only HttpKernel's `Extension` has: drop the calls
