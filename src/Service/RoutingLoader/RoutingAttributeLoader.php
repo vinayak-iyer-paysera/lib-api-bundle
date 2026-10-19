@@ -60,7 +60,7 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
     private $phpParser;
 
     /**
-     * @var array<string, bool>
+     * @var array<string, string|null>
      */
     private $annotationNamespaceImports = [];
 
@@ -97,9 +97,9 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
         if ($annotations !== [] && $attributes !== []) {
             throw new ConfigurationException(sprintf(
                 'The route of method %s::%s() is configured with both docblock annotations (%s) and attributes (%s)'
-                . ' that implement the bundle\'s interfaces, on the method or its class, so no route is loaded: the'
-                . ' attributes would replace all of the docblock options. Configure the method and its class with'
-                . ' attributes only, or with docblock annotations only',
+                . ' that implement the bundle\'s interfaces, on the method or its class: configure the method and its'
+                . ' class with attributes only, or with docblock annotations only. No route is loaded, rather than one'
+                . ' kind being applied and the other dropped',
                 $class->getName(),
                 $method->getName(),
                 $this->listShortClassNames($annotations),
@@ -125,17 +125,31 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
      */
     private function getRestAnnotations(ReflectionClass $class, ReflectionMethod $method): array
     {
+        if (isset($this->reader)) {
+            return $this->readRestAnnotations($this->reader, $class, $method);
+        }
+
+        if (!$this->docblockAnnotationsEnabled) {
+            $this->refuseImportedAnnotations($class, $method);
+
+            return [];
+        }
+
         try {
-            return $this->readRestAnnotations($class, $method);
+            if ($this->annotationReader === null) {
+                $this->annotationReader = new AnnotationReader();
+            }
+
+            return $this->readRestAnnotations($this->annotationReader, $class, $method);
         } catch (AnnotationException $exception) {
             throw new ConfigurationException(sprintf(
-                'Reading the docblock annotations of method %s::%s() failed, so no route is loaded. %s Fix what this'
-                . ' message names (a tag that is not an annotation can be listed with @IgnoreAnnotation in the class'
-                . ' docblock), or replace the bundle\'s docblock annotations with its attributes and set'
-                . ' paysera_api.docblock_annotations to false',
+                'Reading the docblock annotations with paysera_api.docblock_annotations: true failed: %s Fix what'
+                . ' this message names (a tag that is not an annotation can be listed with @IgnoreAnnotation in the'
+                . ' class docblock), or replace the bundle\'s docblock annotations with its attributes and set the'
+                . ' option to false. No route is loaded; reading stopped at method %s::%s()',
+                $exception->getMessage(),
                 $class->getName(),
-                $method->getName(),
-                $exception->getMessage()
+                $method->getName()
             ), 0, $exception);
         }
     }
@@ -143,24 +157,8 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
     /**
      * @return RestAnnotationInterface[]
      */
-    private function readRestAnnotations(ReflectionClass $class, ReflectionMethod $method): array
+    private function readRestAnnotations(Reader $reader, ReflectionClass $class, ReflectionMethod $method): array
     {
-        $reader = $this->getAnnotationReader();
-        if ($reader === null) {
-            if ($this->importsBundleAnnotations($class, $method)) {
-                throw new ConfigurationException(sprintf(
-                    'The bundle\'s docblock annotations are imported for the route of method %s::%s(), but they'
-                    . ' are not read: Symfony passes no annotation reader and paysera_api.docblock_annotations is'
-                    . ' false. Set the option to true, or replace them with the bundle\'s attributes and remove the'
-                    . ' import',
-                    $class->getName(),
-                    $method->getName()
-                ));
-            }
-
-            return [];
-        }
-
         $annotations = $this->getRestClassAnnotations($reader, $class);
         foreach ($reader->getMethodAnnotations($method) as $annotation) {
             if ($annotation instanceof RestAnnotationInterface) {
@@ -178,75 +176,80 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
     {
         $className = $class->getName();
         if (!isset($this->classAnnotations[$className])) {
-            $this->classAnnotations[$className] = [];
+            $annotations = [];
             foreach ($reader->getClassAnnotations($class) as $annotation) {
                 if ($annotation instanceof RestAnnotationInterface) {
-                    $this->classAnnotations[$className][] = $annotation;
+                    $annotations[] = $annotation;
                 }
             }
+            $this->classAnnotations[$className] = $annotations;
         }
 
         return $this->classAnnotations[$className];
     }
 
-    private function importsBundleAnnotations(ReflectionClass $class, ReflectionMethod $method): bool
+    private function refuseImportedAnnotations(ReflectionClass $class, ReflectionMethod $method): void
+    {
+        foreach ($this->getImportScopes($class, $method) as $scope) {
+            $import = $this->findAnnotationNamespaceImport($scope);
+            if ($import !== null) {
+                throw new ConfigurationException(sprintf(
+                    '%s imports %s, but the bundle\'s docblock annotations are not read where Symfony passes no'
+                    . ' annotation reader and paysera_api.docblock_annotations is false: set the option to true, or'
+                    . ' remove the import and use the bundle\'s attributes. No route is loaded; the check stopped at'
+                    . ' method %s::%s()',
+                    $scope->getName(),
+                    $import,
+                    $class->getName(),
+                    $method->getName()
+                ));
+            }
+        }
+    }
+
+    /**
+     * @return ReflectionClass[]
+     */
+    private function getImportScopes(ReflectionClass $class, ReflectionMethod $method): array
     {
         $declaringClass = $method->getDeclaringClass();
         $scopes = [$class, $declaringClass];
-        foreach ($declaringClass->getTraits() as $trait) {
-            if ($trait->hasMethod($method->getName()) && $trait->getFileName() === $method->getFileName()) {
+        $traits = array_values($declaringClass->getTraits());
+        while ($traits !== []) {
+            $trait = array_shift($traits);
+            if ($trait->getFileName() === $method->getFileName()) {
                 $scopes[] = $trait;
             }
+            $traits = array_merge($traits, array_values($trait->getTraits()));
         }
 
-        foreach ($scopes as $scope) {
-            if ($this->importsAnnotationNamespace($scope)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $scopes;
     }
 
-    private function importsAnnotationNamespace(ReflectionClass $class): bool
+    private function findAnnotationNamespaceImport(ReflectionClass $class): ?string
     {
         $className = $class->getName();
-        if (!isset($this->annotationNamespaceImports[$className])) {
+        if (!array_key_exists($className, $this->annotationNamespaceImports)) {
             if ($this->phpParser === null) {
                 $this->phpParser = new PhpParser();
             }
 
-            $this->annotationNamespaceImports[$className] = false;
+            $found = null;
             foreach ($this->phpParser->parseUseStatements($class) as $import) {
-                $import = strtolower($import) . '\\';
+                $name = ltrim($import, '\\');
+                $prefix = strtolower($name) . '\\';
                 if (
-                    strpos(self::ANNOTATION_NAMESPACE, $import) === 0
-                    || strpos($import, self::ANNOTATION_NAMESPACE) === 0
+                    strpos(self::ANNOTATION_NAMESPACE, $prefix) === 0
+                    || strpos($prefix, self::ANNOTATION_NAMESPACE) === 0
                 ) {
-                    $this->annotationNamespaceImports[$className] = true;
+                    $found = $name;
                     break;
                 }
             }
+            $this->annotationNamespaceImports[$className] = $found;
         }
 
         return $this->annotationNamespaceImports[$className];
-    }
-
-    private function getAnnotationReader(): ?Reader
-    {
-        if (isset($this->reader)) {
-            return $this->reader;
-        }
-
-        if (!$this->docblockAnnotationsEnabled) {
-            return null;
-        }
-
-        if ($this->annotationReader === null) {
-            $this->annotationReader = new AnnotationReader();
-        }
-
-        return $this->annotationReader;
     }
 
     /**

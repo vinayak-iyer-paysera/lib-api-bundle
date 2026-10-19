@@ -18,16 +18,27 @@ use Paysera\Bundle\ApiBundle\Service\RestRequestOptionsValidator;
 use Paysera\Bundle\ApiBundle\Service\RoutingLoader\RestRequestAnnotationOptionsBuilder;
 use Paysera\Bundle\ApiBundle\Service\RoutingLoader\RestRequestAttributeOptionsBuilder;
 use Paysera\Bundle\ApiBundle\Service\RoutingLoader\RoutingAttributeLoader;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\Admin\SameNameController as AdminSameName;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\AliasedTraitMethodController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\Api\SameNameController as ApiSameName;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\AttributeOptionsController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\ClassAndActionDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\ClassDocblockAndMethodAttributeController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\ClassDocblockOnInheritedActionController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\ClassDocblockWithUnknownTagController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\DocblockOptionsOnAttributeRouteController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\DocblockOptionsTrait;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\IgnoredBundleAnnotationController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\IgnoredImportedBundleAnnotationController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\IgnoredNoteTagController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\ImportsNamedLikeTheAnnotationNamespaceController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\InheritedDocblockController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\InheritedTraitActionController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\LeadingBackslashImportController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\MethodDocblockAndAttributeController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\MiscasedImportController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\NamespaceAliasDocblockController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\NestedTraitActionController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\NoBundleAnnotationController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OtherLibraryAnnotationController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OtherLibraryBodyController;
@@ -39,23 +50,27 @@ use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\Unimporte
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\UnimportedNoteTagController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\UnusedAnnotationImportController;
 use ReflectionClass;
+use Throwable;
 use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Routing\Loader\AttributeClassLoader;
 
 class RoutingAttributeLoaderTest extends MockeryTestCase
 {
     private const MIXED_ROUTE_MESSAGE = 'The route of method %s() is configured with both docblock annotations (%s)'
-        . ' and attributes (%s) that implement the bundle\'s interfaces, on the method or its class, so no route is'
-        . ' loaded: the attributes would replace all of the docblock options. Configure the method and its class with'
-        . ' attributes only, or with docblock annotations only';
-    private const IMPORTED_ANNOTATIONS_MESSAGE = 'The bundle\'s docblock annotations are imported for the route of'
-        . ' method %s(), but they are not read: Symfony passes no annotation reader and'
-        . ' paysera_api.docblock_annotations is false. Set the option to true, or replace them with the bundle\'s'
-        . ' attributes and remove the import';
-    private const READ_FAILURE_MESSAGE = 'Reading the docblock annotations of method %s() failed, so no route is'
-        . ' loaded. %s Fix what this message names (a tag that is not an annotation can be listed with'
+        . ' and attributes (%s) that implement the bundle\'s interfaces, on the method or its class: configure the'
+        . ' method and its class with attributes only, or with docblock annotations only. No route is loaded, rather'
+        . ' than one kind being applied and the other dropped';
+    private const IMPORTED_ANNOTATIONS_MESSAGE = '%s imports %s, but the bundle\'s docblock annotations are not read'
+        . ' where Symfony passes no annotation reader and paysera_api.docblock_annotations is false: set the option to'
+        . ' true, or remove the import and use the bundle\'s attributes. No route is loaded; the check stopped at'
+        . ' method %s()';
+    private const READ_FAILURE_MESSAGE = 'Reading the docblock annotations with paysera_api.docblock_annotations: true'
+        . ' failed: %s Fix what this message names (a tag that is not an annotation can be listed with'
         . ' @IgnoreAnnotation in the class docblock), or replace the bundle\'s docblock annotations with its attributes'
-        . ' and set paysera_api.docblock_annotations to false';
+        . ' and set the option to false. No route is loaded; reading stopped at method %s()';
+    private const NEVER_IMPORTED_MESSAGE = '[Semantical Error] The annotation "@%s" in %s was never imported. Did you'
+        . ' maybe forget to add a "use" statement for this annotation?';
+    private const ANNOTATION_NAMESPACE = 'Paysera\\Bundle\\ApiBundle\\Annotation';
 
     protected function setUp(): void
     {
@@ -137,6 +152,18 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
                 UnusedAnnotationImportController::class,
                 [UnusedAnnotationImportController::class . '::show' => $adminOnly],
             ],
+            'import written with a leading backslash' => [
+                LeadingBackslashImportController::class,
+                [LeadingBackslashImportController::class . '::show' => $adminOnly],
+            ],
+            'inherited action of a class that uses a trait importing the annotation' => [
+                InheritedTraitActionController::class,
+                [InheritedTraitActionController::class . '::show' => $adminOnly],
+            ],
+            'class docblock of a class that imports the annotation, on an inherited action' => [
+                ClassDocblockOnInheritedActionController::class,
+                [ClassDocblockOnInheritedActionController::class . '::show' => $adminOnly],
+            ],
         ];
     }
 
@@ -149,28 +176,17 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
         $loader->setDocblockAnnotationsEnabled(true);
         $method = $controller . '::show';
 
-        $caught = null;
-        try {
-            $loader->load($controller);
-        } catch (ConfigurationException $exception) {
-            $caught = [$exception->getMessage(), get_class($exception->getPrevious())];
-        }
-
         $this->assertSame(
             [
+                ConfigurationException::class,
                 sprintf(
                     self::READ_FAILURE_MESSAGE,
-                    $method,
-                    sprintf(
-                        '[Semantical Error] The annotation "@%s" in method %s() was never imported. Did you maybe'
-                        . ' forget to add a "use" statement for this annotation?',
-                        $tag,
-                        $method
-                    )
+                    sprintf(self::NEVER_IMPORTED_MESSAGE, $tag, 'method ' . $method . '()'),
+                    $method
                 ),
                 AnnotationException::class,
             ],
-            $caught
+            $this->describeLoadFailure($loader, $controller)
         );
     }
 
@@ -188,18 +204,41 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
         ];
     }
 
+    public function testLoadWithoutAnnotationReaderFailsAgainAfterAFailedReadOfTheClassDocblock(): void
+    {
+        $loader = $this->createLoader();
+        $loader->setDocblockAnnotationsEnabled(true);
+        $failure = [
+            ConfigurationException::class,
+            sprintf(
+                self::READ_FAILURE_MESSAGE,
+                sprintf(self::NEVER_IMPORTED_MESSAGE, 'note', 'class ' . ClassDocblockWithUnknownTagController::class),
+                ClassDocblockWithUnknownTagController::class . '::show'
+            ),
+            AnnotationException::class,
+        ];
+
+        $this->assertSame(
+            [$failure, $failure],
+            [
+                $this->describeLoadFailure($loader, ClassDocblockWithUnknownTagController::class),
+                $this->describeLoadFailure($loader, ClassDocblockWithUnknownTagController::class),
+            ]
+        );
+    }
+
     /**
      * @dataProvider loadWithoutAnnotationReaderFailureDataProvider
      */
-    public function testLoadWithoutAnnotationReaderFails(string $controller, string $exception, string $message): void
+    public function testLoadWithoutAnnotationReaderFails(string $controller, string $message): void
     {
         $loader = $this->createLoader();
         $loader->setDocblockAnnotationsEnabled(true);
 
-        $this->expectException($exception);
-        $this->expectExceptionMessage($message);
-
-        $loader->load($controller);
+        $this->assertSame(
+            [ConfigurationException::class, $message, null],
+            $this->describeLoadFailure($loader, $controller)
+        );
     }
 
     public static function loadWithoutAnnotationReaderFailureDataProvider(): array
@@ -207,7 +246,6 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
         return [
             'annotation on the class and attribute on the action' => [
                 ClassDocblockAndMethodAttributeController::class,
-                ConfigurationException::class,
                 sprintf(
                     self::MIXED_ROUTE_MESSAGE,
                     ClassDocblockAndMethodAttributeController::class . '::update',
@@ -217,7 +255,6 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
             ],
             'annotation and attribute on the action' => [
                 MethodDocblockAndAttributeController::class,
-                ConfigurationException::class,
                 sprintf(
                     self::MIXED_ROUTE_MESSAGE,
                     MethodDocblockAndAttributeController::class . '::show',
@@ -250,6 +287,45 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
             'docblock annotations on' => [true],
             'docblock annotations off, which applies only where no reader is injected' => [false],
         ];
+    }
+
+    public function testLoadWithAnnotationReaderReadsImportedAnnotationsWithTheOptionOff(): void
+    {
+        $loader = $this->createLoaderWithAnnotationReader(false);
+
+        $this->assertEquals(
+            [
+                DocblockOptionsOnAttributeRouteController::class . '::show' => (new RestRequestOptions())
+                    ->setRequiredPermissions(['ROLE_ADMIN']),
+            ],
+            $this->loadOptions($loader, DocblockOptionsOnAttributeRouteController::class)
+        );
+    }
+
+    public function testLoadWithAnnotationReaderPassesItsExceptionThrough(): void
+    {
+        if (!property_exists(AttributeClassLoader::class, 'reader')) {
+            $this->markTestSkipped('Symfony 7 passes no annotation reader to the route loader');
+        }
+
+        $reader = Mockery::mock(Reader::class);
+        $reader
+            ->shouldReceive('getClassAnnotation')
+            ->andReturn(null)
+        ;
+        $reader
+            ->shouldReceive('getClassAnnotations')
+            ->andThrow(AnnotationException::semanticalError('The class docblock cannot be read'))
+        ;
+        $reader
+            ->shouldReceive('getMethodAnnotations')
+            ->andReturn([])
+        ;
+
+        $this->assertSame(
+            [AnnotationException::class, '[Semantical Error] The class docblock cannot be read', null],
+            $this->describeLoadFailure($this->createLoader($reader), DocblockOptionsOnAttributeRouteController::class)
+        );
     }
 
     public function testLoadWithAnnotationReaderReadsTheClassAnnotationsOncePerClass(): void
@@ -323,6 +399,14 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
                         ->disableBodyValidation(),
                 ],
             ],
+            'a controller after one of the same short name in another namespace' => [
+                ApiSameName::class,
+                AdminSameName::class,
+                [
+                    AdminSameName::class . '::show' => (new RestRequestOptions())
+                        ->setRequiredPermissions(['ROLE_ADMIN']),
+                ],
+            ],
             'each action of a controller after another controller' => [
                 ClassAndActionDocblockController::class,
                 TwoActionsDocblockController::class,
@@ -343,15 +427,19 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
     {
         $loader = $this->createLoaderWithAnnotationReader($docblockAnnotationsEnabled);
 
-        $this->expectException(ConfigurationException::class);
-        $this->expectExceptionMessage(sprintf(
-            self::MIXED_ROUTE_MESSAGE,
-            AttributeOptionsController::class . '::show',
-            'RequiredPermissions',
-            'RequiredPermissions'
-        ));
-
-        $loader->load(AttributeOptionsController::class);
+        $this->assertSame(
+            [
+                ConfigurationException::class,
+                sprintf(
+                    self::MIXED_ROUTE_MESSAGE,
+                    AttributeOptionsController::class . '::show',
+                    'RequiredPermissions',
+                    'RequiredPermissions'
+                ),
+                null,
+            ],
+            $this->describeLoadFailure($loader, AttributeOptionsController::class)
+        );
     }
 
     /**
@@ -382,6 +470,10 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
                 OtherLibraryBodyController::class,
                 [OtherLibraryBodyController::class . '::show' => $adminOnly],
             ],
+            'imports whose names only resemble the annotation namespace' => [
+                ImportsNamedLikeTheAnnotationNamespaceController::class,
+                [ImportsNamedLikeTheAnnotationNamespaceController::class . '::show' => $adminOnly],
+            ],
             'action that overrides the method of a trait importing the annotations' => [
                 OverriddenTraitMethodController::class,
                 [OverriddenTraitMethodController::class . '::show' => $adminOnly],
@@ -398,38 +490,137 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
      */
     public function testLoadWithoutAnnotationReaderFailsByDefaultWhereTheBundleAnnotationsAreImported(
         string $controller,
+        string $importingClass,
+        string $import,
         string $method
     ): void {
-        $loader = $this->createLoader();
-
-        $this->expectException(ConfigurationException::class);
-        $this->expectExceptionMessage(sprintf(self::IMPORTED_ANNOTATIONS_MESSAGE, $controller . '::' . $method));
-
-        $loader->load($controller);
+        $this->assertSame(
+            [
+                ConfigurationException::class,
+                sprintf(self::IMPORTED_ANNOTATIONS_MESSAGE, $importingClass, $import, $controller . '::' . $method),
+                null,
+            ],
+            $this->describeLoadFailure($this->createLoader(), $controller)
+        );
     }
 
     public static function loadWithoutAnnotationReaderFailsByDefaultDataProvider(): array
     {
+        $requiredPermissions = self::ANNOTATION_NAMESPACE . '\\RequiredPermissions';
+        $validation = self::ANNOTATION_NAMESPACE . '\\Validation';
+
         return [
-            'annotation on the action' => [DocblockOptionsOnAttributeRouteController::class, 'show'],
+            'annotation on the action' => [
+                DocblockOptionsOnAttributeRouteController::class,
+                DocblockOptionsOnAttributeRouteController::class,
+                $requiredPermissions,
+                'show',
+            ],
             'annotation on the class and attribute on the action' => [
                 ClassDocblockAndMethodAttributeController::class,
+                ClassDocblockAndMethodAttributeController::class,
+                $requiredPermissions,
                 'update',
             ],
-            'annotation and attribute on the action' => [MethodDocblockAndAttributeController::class, 'show'],
-            'action of a trait that imports the annotation' => [TraitDocblockOptionsController::class, 'show'],
-            'inherited action of a class that imports the annotation' => [InheritedDocblockController::class, 'show'],
-            'annotation namespace imported with an alias' => [NamespaceAliasDocblockController::class, 'show'],
-            'parent namespace imported with an alias' => [ParentNamespaceAliasDocblockController::class, 'show'],
+            'annotation and attribute on the action' => [
+                MethodDocblockAndAttributeController::class,
+                MethodDocblockAndAttributeController::class,
+                $validation,
+                'show',
+            ],
+            'action of a trait that imports the annotation' => [
+                TraitDocblockOptionsController::class,
+                DocblockOptionsTrait::class,
+                $requiredPermissions,
+                'show',
+            ],
+            'action of a trait used by another trait' => [
+                NestedTraitActionController::class,
+                DocblockOptionsTrait::class,
+                $requiredPermissions,
+                'show',
+            ],
+            'trait action renamed in the use statement' => [
+                AliasedTraitMethodController::class,
+                DocblockOptionsTrait::class,
+                $requiredPermissions,
+                'index',
+            ],
+            'inherited action of a class that imports the annotation' => [
+                InheritedDocblockController::class,
+                DocblockOptionsOnAttributeRouteController::class,
+                $requiredPermissions,
+                'show',
+            ],
+            'inherited action of a class that uses a trait importing the annotation' => [
+                InheritedTraitActionController::class,
+                DocblockOptionsTrait::class,
+                $requiredPermissions,
+                'show',
+            ],
+            'class docblock of a class that imports the annotation, on an inherited action' => [
+                ClassDocblockOnInheritedActionController::class,
+                ClassDocblockOnInheritedActionController::class,
+                $requiredPermissions,
+                'show',
+            ],
+            'annotation namespace imported with an alias' => [
+                NamespaceAliasDocblockController::class,
+                NamespaceAliasDocblockController::class,
+                self::ANNOTATION_NAMESPACE,
+                'show',
+            ],
+            'parent namespace imported with an alias' => [
+                ParentNamespaceAliasDocblockController::class,
+                ParentNamespaceAliasDocblockController::class,
+                'Paysera\\Bundle\\ApiBundle',
+                'show',
+            ],
+            'import written with a leading backslash' => [
+                LeadingBackslashImportController::class,
+                LeadingBackslashImportController::class,
+                $requiredPermissions,
+                'show',
+            ],
+            'import in another letter case' => [
+                MiscasedImportController::class,
+                MiscasedImportController::class,
+                'Paysera\\Bundle\\APIBundle\\Annotation\\RequiredPermissions',
+                'show',
+            ],
             'unused import next to an attribute: refused, as the check reads only the imports' => [
                 UnusedAnnotationImportController::class,
+                UnusedAnnotationImportController::class,
+                $validation,
                 'show',
             ],
             'unknown tag next to an imported annotation: refused before any docblock is parsed' => [
                 UnimportedNoteTagController::class,
+                UnimportedNoteTagController::class,
+                $requiredPermissions,
                 'show',
             ],
         ];
+    }
+
+    public function testLoadWithoutAnnotationReaderChecksEachClassOfTheSameShortName(): void
+    {
+        $loader = $this->createLoader();
+        $loader->load(ApiSameName::class);
+
+        $this->assertSame(
+            [
+                ConfigurationException::class,
+                sprintf(
+                    self::IMPORTED_ANNOTATIONS_MESSAGE,
+                    AdminSameName::class,
+                    self::ANNOTATION_NAMESPACE . '\\RequiredPermissions',
+                    AdminSameName::class . '::show'
+                ),
+                null,
+            ],
+            $this->describeLoadFailure($loader, AdminSameName::class)
+        );
     }
 
     /**
@@ -549,6 +740,22 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
         );
 
         return $loader;
+    }
+
+    /**
+     * @return array{string, string, string|null}|null the class, message and previous class of the failure
+     */
+    private function describeLoadFailure(RoutingAttributeLoader $loader, string $controller): ?array
+    {
+        try {
+            $loader->load($controller);
+        } catch (Throwable $exception) {
+            $previous = $exception->getPrevious();
+
+            return [get_class($exception), $exception->getMessage(), $previous === null ? null : get_class($previous)];
+        }
+
+        return null;
     }
 
     /**
