@@ -10,13 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for `psr/log` 3
 - `docblock_annotations` option (default `false`) for setups where Symfony passes no annotation reader to the route
   loader (on Symfony 7, on Symfony 6.4 with `framework.annotations` disabled, and with FrameworkBundle 6.4 and
-  `symfony/routing` 7): `true` reads the docblock annotations of `#[Route]` actions and of their classes with Doctrine's
-  `AnnotationReader`, so the route load fails where that reader fails: on a docblock tag it cannot resolve, such as one
-  that is neither imported nor ignored (`@note`; list it with `@IgnoreAnnotation` in the class docblock, where an
+  `symfony/routing` 7). `false` reads only attributes, and loading a route fails with a `ConfigurationException` where
+  the class of its action, the class that declares the action or the trait that declares it imports the bundle's
+  annotation namespace `Paysera\Bundle\ApiBundle\Annotation`, a class in it or a namespace above it, so that no
+  imported docblock annotation is skipped silently. `true` reads the docblock annotations of `#[Route]` actions and of
+  their classes with Doctrine's `AnnotationReader`, each class docblock once, and loading the routes fails with a
+  `ConfigurationException` that names the action where that reader fails: on a docblock tag it cannot resolve, such as
+  one that is neither imported nor ignored (`@note`; list it with `@IgnoreAnnotation` in the class docblock, where an
   annotation of the bundle listed there is then skipped too, unless a `use` statement imports it or it is written with
-  its full class name), and when OPcache is loaded with `opcache.save_comments=0`; `false` reads only attributes. Where
-  Symfony passes its annotation reader, the bundle reads its docblock annotations with it, as before, whatever the
-  option says. Before Symfony 6.4 the option has no effect
+  its full class name), and when OPcache is loaded with `opcache.save_comments=0`. Where Symfony passes its annotation
+  reader, the bundle reads its docblock annotations with it, as before, whatever the option says. Before Symfony 6.4
+  the option has no effect
 
 ### Changed
 - The Symfony components the bundle uses directly are required explicitly: `symfony/config`,
@@ -28,7 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it without the return type: add `: TreeBuilder` to the override
 - The services are registered by `PayseraApiExtension` instead of the XML files in `Resources/config`, which are
   removed, so Symfony 7.4 no longer reports that the XML configuration format is deprecated. The service ids, classes,
-  arguments, method calls, tags and visibility are unchanged
+  arguments, method calls, tags and visibility are unchanged, apart from the call that passes `docblock_annotations`
+  to the attribute route loader
 - `PayseraApiExtension` extends `Symfony\Component\DependencyInjection\Extension\Extension` instead of HttpKernel's
   `Extension`, which is internal since Symfony 7.1. Breaking for subclasses that call `addAnnotatedClassesToCompile()`
   or `getAnnotatedClassesToCompile()`, which only HttpKernel's `Extension` has: drop the calls
@@ -47,18 +52,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   also `de`
 
 ### Security
-- Where Symfony passes no annotation reader to the route loader (on Symfony 7, on Symfony 6.4 with
-  `framework.annotations` disabled, and with FrameworkBundle 6.4 and `symfony/routing` 7), the bundle's docblock
-  annotations, `@RequiredPermissions` among them, are ignored without an error unless `docblock_annotations` is `true`,
-  as 1.x did on Symfony 6.4 with `framework.annotations` disabled. An application that moves to one of these setups
-  from one where Symfony's reader applied them (Symfony 3.4 to 6.4 with `framework.annotations` enabled) must set the
-  option to keep them
+- Breaking: where Symfony passes no annotation reader to the route loader (on Symfony 7, on Symfony 6.4 with
+  `framework.annotations` disabled, and with FrameworkBundle 6.4 and `symfony/routing` 7), 1.x ignored the bundle's
+  docblock annotations, `@RequiredPermissions` among them, without an error. With `docblock_annotations: false`, the
+  default, a route whose action imports the bundle's annotation namespace now fails to load with a
+  `ConfigurationException`: set the option to `true` to apply the annotations, or replace them with attributes and
+  remove the import. An application that moves to one of these setups from one where Symfony's reader applied them
+  (Symfony 3.4 to 6.4 with `framework.annotations` enabled) gets this error until it does one of the two. A docblock
+  annotation of the bundle written with no import at all is not detected, just as an attribute written without its
+  `use` statement is not applied
 - Breaking: from Symfony 6.4, where the bundle reads docblock annotations (Symfony passes its annotation reader, or
   `docblock_annotations` is `true`), a route configured with both docblock annotations and attributes of the bundle, or
   of the application's own classes implementing its interfaces, on the action or on its class, fails to load with a
-  `ConfigurationException`. Before, the attributes replaced all of the docblock options, so `#[Body]` on an action
-  dropped the `@RequiredPermissions` of its class; configure each route with one of them. Where the bundle reads no
-  docblock annotations, only the attributes apply, as the entry above says
+  `ConfigurationException` that names the annotations and the attributes it found, and no route is loaded. Before,
+  the attributes replaced all of the docblock options, so `#[Body]` on an action dropped the `@RequiredPermissions` of
+  its class; configure each route with one of them. Where the bundle reads no docblock annotations, such a route fails
+  to load when its action imports the bundle's annotation namespace, as the entry above says
 
 ## [1.8.2]
 ### Changed
