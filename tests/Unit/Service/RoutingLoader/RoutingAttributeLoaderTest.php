@@ -44,8 +44,10 @@ use Symfony\Component\Routing\Loader\AttributeClassLoader;
 
 class RoutingAttributeLoaderTest extends MockeryTestCase
 {
-    private const MIXED_ROUTE_MESSAGE = 'The route of method %s() is configured with both docblock annotations and'
-        . ' attributes that implement the bundle\'s interfaces, on the method or its class: use one of them';
+    private const MIXED_ROUTE_MESSAGE = 'The route of method %s() is configured with both docblock annotations (%s)'
+        . ' and attributes (%s) that implement the bundle\'s interfaces, on the method or its class, so no route is'
+        . ' loaded: the attributes would replace all of the docblock options. Configure the method and its class with'
+        . ' attributes only, or with docblock annotations only';
     private const IMPORTED_ANNOTATIONS_MESSAGE = 'The bundle\'s docblock annotations are imported for the route of'
         . ' method %s(), but they are not read: Symfony passes no annotation reader and'
         . ' paysera_api.docblock_annotations is false. Set the option to true, or replace them with the bundle\'s'
@@ -206,12 +208,22 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
             'annotation on the class and attribute on the action' => [
                 ClassDocblockAndMethodAttributeController::class,
                 ConfigurationException::class,
-                sprintf(self::MIXED_ROUTE_MESSAGE, ClassDocblockAndMethodAttributeController::class . '::update'),
+                sprintf(
+                    self::MIXED_ROUTE_MESSAGE,
+                    ClassDocblockAndMethodAttributeController::class . '::update',
+                    'RequiredPermissions',
+                    'Body'
+                ),
             ],
             'annotation and attribute on the action' => [
                 MethodDocblockAndAttributeController::class,
                 ConfigurationException::class,
-                sprintf(self::MIXED_ROUTE_MESSAGE, MethodDocblockAndAttributeController::class . '::show'),
+                sprintf(
+                    self::MIXED_ROUTE_MESSAGE,
+                    MethodDocblockAndAttributeController::class . '::show',
+                    'Validation',
+                    'RequiredPermissions'
+                ),
             ],
         ];
     }
@@ -332,7 +344,12 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
         $loader = $this->createLoaderWithAnnotationReader($docblockAnnotationsEnabled);
 
         $this->expectException(ConfigurationException::class);
-        $this->expectExceptionMessage(sprintf(self::MIXED_ROUTE_MESSAGE, AttributeOptionsController::class . '::show'));
+        $this->expectExceptionMessage(sprintf(
+            self::MIXED_ROUTE_MESSAGE,
+            AttributeOptionsController::class . '::show',
+            'RequiredPermissions',
+            'RequiredPermissions'
+        ));
 
         $loader->load(AttributeOptionsController::class);
     }

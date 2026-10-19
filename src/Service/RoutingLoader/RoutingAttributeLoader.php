@@ -96,10 +96,14 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
         $attributes = $this->getRestAttributes($class, $method);
         if ($annotations !== [] && $attributes !== []) {
             throw new ConfigurationException(sprintf(
-                'The route of method %s::%s() is configured with both docblock annotations and attributes that'
-                . ' implement the bundle\'s interfaces, on the method or its class: use one of them',
+                'The route of method %s::%s() is configured with both docblock annotations (%s) and attributes (%s)'
+                . ' that implement the bundle\'s interfaces, on the method or its class, so no route is loaded: the'
+                . ' attributes would replace all of the docblock options. Configure the method and its class with'
+                . ' attributes only, or with docblock annotations only',
                 $class->getName(),
-                $method->getName()
+                $method->getName(),
+                $this->listShortClassNames($annotations),
+                $this->listShortClassNames($attributes)
             ));
         }
 
@@ -243,6 +247,19 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
         }
 
         return $this->annotationReader;
+    }
+
+    /**
+     * @param object[] $objects
+     */
+    private function listShortClassNames(array $objects): string
+    {
+        $names = [];
+        foreach ($objects as $object) {
+            $names[] = (new ReflectionClass($object))->getShortName();
+        }
+
+        return implode(', ', $names);
     }
 
     /**
