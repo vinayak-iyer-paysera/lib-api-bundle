@@ -45,6 +45,11 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
      */
     private $annotationReader;
 
+    /**
+     * @var array<string, RestAnnotationInterface[]>
+     */
+    private $classAnnotations = [];
+
     public function setRequestHelper(RestRequestHelper $restRequestHelper)
     {
         $this->restRequestHelper = $restRequestHelper;
@@ -107,13 +112,7 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
             return [];
         }
 
-        $annotations = [];
-        foreach ($reader->getClassAnnotations($class) as $annotation) {
-            if ($annotation instanceof RestAnnotationInterface) {
-                $annotations[] = $annotation;
-            }
-        }
-
+        $annotations = $this->getRestClassAnnotations($reader, $class);
         foreach ($reader->getMethodAnnotations($method) as $annotation) {
             if ($annotation instanceof RestAnnotationInterface) {
                 $annotations[] = $annotation;
@@ -121,6 +120,24 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
         }
 
         return $annotations;
+    }
+
+    /**
+     * @return RestAnnotationInterface[]
+     */
+    private function getRestClassAnnotations(Reader $reader, ReflectionClass $class): array
+    {
+        $className = $class->getName();
+        if (!isset($this->classAnnotations[$className])) {
+            $this->classAnnotations[$className] = [];
+            foreach ($reader->getClassAnnotations($class) as $annotation) {
+                if ($annotation instanceof RestAnnotationInterface) {
+                    $this->classAnnotations[$className][] = $annotation;
+                }
+            }
+        }
+
+        return $this->classAnnotations[$className];
     }
 
     private function getAnnotationReader(): ?Reader

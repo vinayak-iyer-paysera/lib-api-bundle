@@ -29,6 +29,7 @@ use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\MethodDoc
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\NoBundleAnnotationController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OtherLibraryAnnotationController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\TraitDocblockOptionsController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\TwoActionsDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\UnimportedAnnotationDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\UnimportedNoteTagController;
 use ReflectionClass;
@@ -170,6 +171,90 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
         return [
             'docblock annotations on' => [true],
             'docblock annotations off, which applies only where no reader is injected' => [false],
+        ];
+    }
+
+    public function testLoadWithAnnotationReaderReadsTheClassAnnotationsOncePerClass(): void
+    {
+        if (!property_exists(AttributeClassLoader::class, 'reader')) {
+            $this->markTestSkipped('Symfony 7 passes no annotation reader to the route loader');
+        }
+
+        $classReads = [];
+        $reader = Mockery::mock(Reader::class);
+        $reader
+            ->shouldReceive('getClassAnnotation')
+            ->andReturn(null)
+        ;
+        $reader
+            ->shouldReceive('getClassAnnotations')
+            ->andReturnUsing(static function (ReflectionClass $class) use (&$classReads): array {
+                $classReads[] = $class->getName();
+
+                return [];
+            })
+        ;
+        $reader
+            ->shouldReceive('getMethodAnnotations')
+            ->andReturn([])
+        ;
+        $loader = $this->createLoader($reader);
+
+        $loader->load(TwoActionsDocblockController::class);
+        $loader->load(DocblockOptionsOnAttributeRouteController::class);
+
+        $this->assertSame(
+            [TwoActionsDocblockController::class => 1, DocblockOptionsOnAttributeRouteController::class => 1],
+            array_count_values($classReads)
+        );
+    }
+
+    /**
+     * @dataProvider loadAfterAnotherControllerDataProvider
+     * @param array<string, RestRequestOptions|null> $expectedOptions
+     */
+    public function testLoadAfterAnotherControllerKeepsEachClassAnnotations(
+        string $firstController,
+        string $controller,
+        array $expectedOptions
+    ): void {
+        $loader = $this->createLoader();
+        $loader->setDocblockAnnotationsEnabled(true);
+        $loader->load($firstController);
+
+        $this->assertEquals($expectedOptions, $this->loadOptions($loader, $controller));
+    }
+
+    public static function loadAfterAnotherControllerDataProvider(): array
+    {
+        return [
+            'a controller without class annotations after one with them' => [
+                ClassAndActionDocblockController::class,
+                DocblockOptionsOnAttributeRouteController::class,
+                [
+                    DocblockOptionsOnAttributeRouteController::class . '::show' => (new RestRequestOptions())
+                        ->setRequiredPermissions(['ROLE_ADMIN']),
+                ],
+            ],
+            'a controller with class annotations after one without them' => [
+                DocblockOptionsOnAttributeRouteController::class,
+                ClassAndActionDocblockController::class,
+                [
+                    ClassAndActionDocblockController::class . '::show' => (new RestRequestOptions())
+                        ->setRequiredPermissions(['ROLE_USER', 'ROLE_ADMIN'])
+                        ->disableBodyValidation(),
+                ],
+            ],
+            'each action of a controller after another controller' => [
+                ClassAndActionDocblockController::class,
+                TwoActionsDocblockController::class,
+                [
+                    TwoActionsDocblockController::class . '::first' => (new RestRequestOptions())
+                        ->setRequiredPermissions(['ROLE_USER']),
+                    TwoActionsDocblockController::class . '::second' => (new RestRequestOptions())
+                        ->setRequiredPermissions(['ROLE_USER']),
+                ],
+            ],
         ];
     }
 
