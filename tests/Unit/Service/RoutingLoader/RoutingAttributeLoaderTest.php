@@ -50,6 +50,10 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
         . ' method %s(), but they are not read: Symfony passes no annotation reader and'
         . ' paysera_api.docblock_annotations is false. Set the option to true, or replace them with the bundle\'s'
         . ' attributes and remove the import';
+    private const READ_FAILURE_MESSAGE = 'Reading the docblock annotations of method %s() failed, so no route is'
+        . ' loaded. %s Fix what this message names (a tag that is not an annotation can be listed with'
+        . ' @IgnoreAnnotation in the class docblock), or replace the bundle\'s docblock annotations with its attributes'
+        . ' and set paysera_api.docblock_annotations to false';
 
     protected function setUp(): void
     {
@@ -135,6 +139,54 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
     }
 
     /**
+     * @dataProvider loadWithoutAnnotationReaderFailsToReadDataProvider
+     */
+    public function testLoadWithoutAnnotationReaderFailsToReadADocblock(string $controller, string $tag): void
+    {
+        $loader = $this->createLoader();
+        $loader->setDocblockAnnotationsEnabled(true);
+        $method = $controller . '::show';
+
+        $caught = null;
+        try {
+            $loader->load($controller);
+        } catch (ConfigurationException $exception) {
+            $caught = [$exception->getMessage(), get_class($exception->getPrevious())];
+        }
+
+        $this->assertSame(
+            [
+                sprintf(
+                    self::READ_FAILURE_MESSAGE,
+                    $method,
+                    sprintf(
+                        '[Semantical Error] The annotation "@%s" in method %s() was never imported. Did you maybe'
+                        . ' forget to add a "use" statement for this annotation?',
+                        $tag,
+                        $method
+                    )
+                ),
+                AnnotationException::class,
+            ],
+            $caught
+        );
+    }
+
+    public static function loadWithoutAnnotationReaderFailsToReadDataProvider(): array
+    {
+        return [
+            'annotation of the bundle that is not imported, refused as by Doctrine\'s reader' => [
+                UnimportedAnnotationDocblockController::class,
+                'RequiredPermissions',
+            ],
+            'tag that is not imported and not an annotation, refused as by Doctrine\'s reader' => [
+                UnimportedNoteTagController::class,
+                'note',
+            ],
+        ];
+    }
+
+    /**
      * @dataProvider loadWithoutAnnotationReaderFailureDataProvider
      */
     public function testLoadWithoutAnnotationReaderFails(string $controller, string $exception, string $message): void
@@ -151,18 +203,6 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
     public static function loadWithoutAnnotationReaderFailureDataProvider(): array
     {
         return [
-            'annotation of the bundle that is not imported, refused as by Doctrine\'s reader' => [
-                UnimportedAnnotationDocblockController::class,
-                AnnotationException::class,
-                'The annotation "@RequiredPermissions" in method ' . UnimportedAnnotationDocblockController::class
-                . '::show() was never imported',
-            ],
-            'tag that is not imported and not an annotation, refused as by Doctrine\'s reader' => [
-                UnimportedNoteTagController::class,
-                AnnotationException::class,
-                'The annotation "@note" in method ' . UnimportedNoteTagController::class
-                . '::show() was never imported',
-            ],
             'annotation on the class and attribute on the action' => [
                 ClassDocblockAndMethodAttributeController::class,
                 ConfigurationException::class,
@@ -418,7 +458,7 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
             ],
             'docblock annotations on, docblocks stripped: Doctrine\'s reader refuses to run' => [
                 $docblocksStripped,
-                AnnotationException::class,
+                ConfigurationException::class,
                 [DocblockOptionsOnAttributeRouteController::class, 'docblock-annotations'],
             ],
             'docblock annotations on, docblocks kept' => [
@@ -435,7 +475,7 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
             ],
             'docblock annotations on, save_comments off with OPcache off for the command line: refused as well' => [
                 ['-d', 'opcache.enable_cli=0', '-d', 'opcache.save_comments=0'],
-                AnnotationException::class,
+                ConfigurationException::class,
                 [DocblockOptionsOnAttributeRouteController::class, 'docblock-annotations'],
             ],
         ];

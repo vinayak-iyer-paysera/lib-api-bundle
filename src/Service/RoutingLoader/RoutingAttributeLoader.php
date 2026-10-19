@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Paysera\Bundle\ApiBundle\Service\RoutingLoader;
 
+use Doctrine\Common\Annotations\AnnotationException;
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\Common\Annotations\PhpParser;
 use Doctrine\Common\Annotations\Reader;
@@ -119,6 +120,26 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
      * @return RestAnnotationInterface[]
      */
     private function getRestAnnotations(ReflectionClass $class, ReflectionMethod $method): array
+    {
+        try {
+            return $this->readRestAnnotations($class, $method);
+        } catch (AnnotationException $exception) {
+            throw new ConfigurationException(sprintf(
+                'Reading the docblock annotations of method %s::%s() failed, so no route is loaded. %s Fix what this'
+                . ' message names (a tag that is not an annotation can be listed with @IgnoreAnnotation in the class'
+                . ' docblock), or replace the bundle\'s docblock annotations with its attributes and set'
+                . ' paysera_api.docblock_annotations to false',
+                $class->getName(),
+                $method->getName(),
+                $exception->getMessage()
+            ), 0, $exception);
+        }
+    }
+
+    /**
+     * @return RestAnnotationInterface[]
+     */
+    private function readRestAnnotations(ReflectionClass $class, ReflectionMethod $method): array
     {
         $reader = $this->getAnnotationReader();
         if ($reader === null) {
