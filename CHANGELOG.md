@@ -10,10 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for `psr/log` 3
 - `docblock_annotations` option (default `false`) for setups where Symfony passes no annotation reader to the route
   loader (on Symfony 7, on Symfony 6.4 with `framework.annotations` disabled, and with FrameworkBundle 6.4 and
-  `symfony/routing` 7). `false` reads only attributes, and loading a route fails with a `ConfigurationException` where
-  the class of its action, the class that declares the action or the trait that declares it imports the bundle's
-  annotation namespace `Paysera\Bundle\ApiBundle\Annotation`, a class in it or a namespace above it, so that no
-  imported docblock annotation is skipped silently. `true` reads the docblock annotations of `#[Route]` actions and of
+  `symfony/routing` 7). `false` reads only attributes, and loading the routes fails with a `ConfigurationException`
+  that names the import where the class of an action, the class that declares the action or a trait its body comes
+  from, at any depth, imports the bundle's annotation namespace `Paysera\Bundle\ApiBundle\Annotation`, a class in it
+  or a namespace above it, in any letter case and with or without a leading backslash, so that no imported docblock
+  annotation is skipped silently. `true` reads the docblock annotations of `#[Route]` actions and of
   their classes with Doctrine's `AnnotationReader`, each class docblock once, and loading the routes fails with a
   `ConfigurationException` that names the action where that reader fails: on a docblock tag it cannot resolve, such as
   one that is neither imported nor ignored (`@note`; list it with `@IgnoreAnnotation` in the class docblock, where an
@@ -55,19 +56,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Breaking: where Symfony passes no annotation reader to the route loader (on Symfony 7, on Symfony 6.4 with
   `framework.annotations` disabled, and with FrameworkBundle 6.4 and `symfony/routing` 7), 1.x ignored the bundle's
   docblock annotations, `@RequiredPermissions` among them, without an error. With `docblock_annotations: false`, the
-  default, a route whose action imports the bundle's annotation namespace now fails to load with a
-  `ConfigurationException`: set the option to `true` to apply the annotations, or replace them with attributes and
-  remove the import. An application that moves to one of these setups from one where Symfony's reader applied them
-  (Symfony 3.4 to 6.4 with `framework.annotations` enabled) gets this error until it does one of the two. A docblock
-  annotation of the bundle written with no import at all is not detected, just as an attribute written without its
-  `use` statement is not applied
+  default, loading the routes now fails with a `ConfigurationException` when an action imports the bundle's
+  annotation namespace: set the option to `true` to apply the annotations, or replace them with attributes and remove
+  the import. An application that moves to one of these setups from one where Symfony's reader applied them (Symfony
+  3.4 to 6.4 with `framework.annotations` enabled) gets this error until it does one of the two. The check reads use
+  statements only, so it does not detect a docblock annotation of the bundle that no use statement imports, written
+  with its full class name or with no import at all, nor an annotation class of the application's own
 - Breaking: from Symfony 6.4, where the bundle reads docblock annotations (Symfony passes its annotation reader, or
   `docblock_annotations` is `true`), a route configured with both docblock annotations and attributes of the bundle, or
   of the application's own classes implementing its interfaces, on the action or on its class, fails to load with a
   `ConfigurationException` that names the annotations and the attributes it found, and no route is loaded. Before,
   the attributes replaced all of the docblock options, so `#[Body]` on an action dropped the `@RequiredPermissions` of
-  its class; configure each route with one of them. Where the bundle reads no docblock annotations, such a route fails
-  to load when its action imports the bundle's annotation namespace, as the entry above says
+  its class; configure each route with one of them. Where the bundle reads no docblock annotations, loading the routes
+  fails when the action imports the bundle's annotation namespace, as the entry above says
 
 ## [1.8.2]
 ### Changed
