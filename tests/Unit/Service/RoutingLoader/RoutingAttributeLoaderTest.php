@@ -25,13 +25,19 @@ use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\DocblockO
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\IgnoredBundleAnnotationController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\IgnoredImportedBundleAnnotationController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\IgnoredNoteTagController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\InheritedDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\MethodDocblockAndAttributeController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\NamespaceAliasDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\NoBundleAnnotationController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OtherLibraryAnnotationController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OtherLibraryBodyController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OverriddenTraitMethodController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\ParentNamespaceAliasDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\TraitDocblockOptionsController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\TwoActionsDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\UnimportedAnnotationDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\UnimportedNoteTagController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\UnusedAnnotationImportController;
 use ReflectionClass;
 use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Routing\Loader\AttributeClassLoader;
@@ -40,6 +46,10 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
 {
     private const MIXED_ROUTE_MESSAGE = 'The route of method %s() is configured with both docblock annotations and'
         . ' attributes that implement the bundle\'s interfaces, on the method or its class: use one of them';
+    private const IMPORTED_ANNOTATIONS_MESSAGE = 'The bundle\'s docblock annotations are imported for the route of'
+        . ' method %s(), but they are not read: Symfony passes no annotation reader and'
+        . ' paysera_api.docblock_annotations is false. Set the option to true, or replace them with the bundle\'s'
+        . ' attributes and remove the import';
 
     protected function setUp(): void
     {
@@ -104,6 +114,22 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
             'imported annotation of the bundle listed in IgnoreAnnotation: applied, as by Doctrine\'s reader' => [
                 IgnoredImportedBundleAnnotationController::class,
                 [IgnoredImportedBundleAnnotationController::class . '::show' => $adminOnly],
+            ],
+            'annotation namespace imported with an alias' => [
+                NamespaceAliasDocblockController::class,
+                [NamespaceAliasDocblockController::class . '::show' => $adminOnly],
+            ],
+            'parent namespace imported with an alias' => [
+                ParentNamespaceAliasDocblockController::class,
+                [ParentNamespaceAliasDocblockController::class . '::show' => $adminOnly],
+            ],
+            'inherited action of a class that imports the annotation' => [
+                InheritedDocblockController::class,
+                [InheritedDocblockController::class . '::show' => $adminOnly],
+            ],
+            'unused import of an annotation of the bundle next to an attribute' => [
+                UnusedAnnotationImportController::class,
+                [UnusedAnnotationImportController::class . '::show' => $adminOnly],
             ],
         ];
     }
@@ -284,33 +310,67 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
 
     public static function loadWithoutAnnotationReaderByDefaultDataProvider(): array
     {
+        $adminOnly = (new RestRequestOptions())->setRequiredPermissions(['ROLE_ADMIN']);
+
         return [
-            'docblock annotation' => [
-                DocblockOptionsOnAttributeRouteController::class,
-                [DocblockOptionsOnAttributeRouteController::class . '::show' => null],
-            ],
             'attribute' => [
                 AttributeOptionsController::class,
-                [
-                    AttributeOptionsController::class . '::show' => (new RestRequestOptions())
-                        ->setRequiredPermissions(['ROLE_ADMIN']),
-                ],
+                [AttributeOptionsController::class . '::show' => $adminOnly],
             ],
-            'docblock annotation and attribute on the action: only the attribute is read' => [
-                MethodDocblockAndAttributeController::class,
-                [
-                    MethodDocblockAndAttributeController::class . '::show' => (new RestRequestOptions())
-                        ->setRequiredPermissions(['ROLE_ADMIN']),
-                ],
+            'no annotation of the bundle' => [
+                NoBundleAnnotationController::class,
+                [NoBundleAnnotationController::class . '::show' => null],
             ],
-            'annotation on the class and attribute on the action: only the attribute is read' => [
+            'annotation of another library imported as Body, next to an attribute' => [
+                OtherLibraryBodyController::class,
+                [OtherLibraryBodyController::class . '::show' => $adminOnly],
+            ],
+            'action that overrides the method of a trait importing the annotations' => [
+                OverriddenTraitMethodController::class,
+                [OverriddenTraitMethodController::class . '::show' => $adminOnly],
+            ],
+            'annotation of the bundle with no import at all: not read, as an attribute with no import is not' => [
+                UnimportedAnnotationDocblockController::class,
+                [UnimportedAnnotationDocblockController::class . '::show' => null],
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider loadWithoutAnnotationReaderFailsByDefaultDataProvider
+     */
+    public function testLoadWithoutAnnotationReaderFailsByDefaultWhereTheBundleAnnotationsAreImported(
+        string $controller,
+        string $method
+    ): void {
+        $loader = $this->createLoader();
+
+        $this->expectException(ConfigurationException::class);
+        $this->expectExceptionMessage(sprintf(self::IMPORTED_ANNOTATIONS_MESSAGE, $controller . '::' . $method));
+
+        $loader->load($controller);
+    }
+
+    public static function loadWithoutAnnotationReaderFailsByDefaultDataProvider(): array
+    {
+        return [
+            'annotation on the action' => [DocblockOptionsOnAttributeRouteController::class, 'show'],
+            'annotation on the class and attribute on the action' => [
                 ClassDocblockAndMethodAttributeController::class,
-                [
-                    ClassDocblockAndMethodAttributeController::class . '::update' => (new RestRequestOptions())
-                        ->setBodyParameterName('data')
-                        ->setBodyDenormalizationType('plain')
-                        ->setBodyOptional(false),
-                ],
+                'update',
+            ],
+            'annotation and attribute on the action' => [MethodDocblockAndAttributeController::class, 'show'],
+            'action of a trait that imports the annotation' => [TraitDocblockOptionsController::class, 'show'],
+            'inherited action of a class that imports the annotation' => [InheritedDocblockController::class, 'show'],
+            'annotation namespace imported with an alias' => [NamespaceAliasDocblockController::class, 'show'],
+            'parent namespace imported with an alias' => [ParentNamespaceAliasDocblockController::class, 'show'],
+            'unused import next to an attribute: refused, as the check reads only the imports' => [
+                UnusedAnnotationImportController::class,
+                'show',
+            ],
+            'unknown tag next to an imported annotation: refused before any docblock is parsed' => [
+                UnimportedNoteTagController::class,
+                'show',
             ],
         ];
     }
@@ -350,6 +410,11 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
                 $docblocksStripped,
                 '["ROLE_ADMIN"]',
                 [AttributeOptionsController::class],
+            ],
+            'annotation of the bundle imported, docblocks stripped, default configuration: refused' => [
+                $docblocksStripped,
+                ConfigurationException::class,
+                [DocblockOptionsOnAttributeRouteController::class],
             ],
             'docblock annotations on, docblocks stripped: Doctrine\'s reader refuses to run' => [
                 $docblocksStripped,

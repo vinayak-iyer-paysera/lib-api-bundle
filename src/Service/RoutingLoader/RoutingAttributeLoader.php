@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Paysera\Bundle\ApiBundle\Service\RoutingLoader;
 
 use Doctrine\Common\Annotations\AnnotationReader;
+use Doctrine\Common\Annotations\PhpParser;
 use Doctrine\Common\Annotations\Reader;
 use Paysera\Bundle\ApiBundle\Annotation\RestAnnotationInterface;
 use Paysera\Bundle\ApiBundle\Attribute\RestAttributeInterface;
@@ -20,6 +21,8 @@ use Symfony\Component\Routing\Route;
  */
 class RoutingAttributeLoader extends AttributeRouteControllerLoader
 {
+    private const ANNOTATION_NAMESPACE = 'paysera\bundle\apibundle\annotation\\';
+
     /**
      * @var RestRequestHelper
      */
@@ -49,6 +52,16 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
      * @var array<string, RestAnnotationInterface[]>
      */
     private $classAnnotations = [];
+
+    /**
+     * @var PhpParser|null
+     */
+    private $phpParser;
+
+    /**
+     * @var array<string, bool>
+     */
+    private $annotationNamespaceImports = [];
 
     public function setRequestHelper(RestRequestHelper $restRequestHelper)
     {
@@ -109,6 +122,17 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
     {
         $reader = $this->getAnnotationReader();
         if ($reader === null) {
+            if ($this->importsBundleAnnotations($class, $method)) {
+                throw new ConfigurationException(sprintf(
+                    'The bundle\'s docblock annotations are imported for the route of method %s::%s(), but they'
+                    . ' are not read: Symfony passes no annotation reader and paysera_api.docblock_annotations is'
+                    . ' false. Set the option to true, or replace them with the bundle\'s attributes and remove the'
+                    . ' import',
+                    $class->getName(),
+                    $method->getName()
+                ));
+            }
+
             return [];
         }
 
@@ -138,6 +162,49 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
         }
 
         return $this->classAnnotations[$className];
+    }
+
+    private function importsBundleAnnotations(ReflectionClass $class, ReflectionMethod $method): bool
+    {
+        $declaringClass = $method->getDeclaringClass();
+        $scopes = [$class, $declaringClass];
+        foreach ($declaringClass->getTraits() as $trait) {
+            if ($trait->hasMethod($method->getName()) && $trait->getFileName() === $method->getFileName()) {
+                $scopes[] = $trait;
+            }
+        }
+
+        foreach ($scopes as $scope) {
+            if ($this->importsAnnotationNamespace($scope)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function importsAnnotationNamespace(ReflectionClass $class): bool
+    {
+        $className = $class->getName();
+        if (!isset($this->annotationNamespaceImports[$className])) {
+            if ($this->phpParser === null) {
+                $this->phpParser = new PhpParser();
+            }
+
+            $this->annotationNamespaceImports[$className] = false;
+            foreach ($this->phpParser->parseUseStatements($class) as $import) {
+                $import = strtolower($import) . '\\';
+                if (
+                    strpos(self::ANNOTATION_NAMESPACE, $import) === 0
+                    || strpos($import, self::ANNOTATION_NAMESPACE) === 0
+                ) {
+                    $this->annotationNamespaceImports[$className] = true;
+                    break;
+                }
+            }
+        }
+
+        return $this->annotationNamespaceImports[$className];
     }
 
     private function getAnnotationReader(): ?Reader
