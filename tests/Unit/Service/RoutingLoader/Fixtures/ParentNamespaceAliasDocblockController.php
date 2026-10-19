@@ -13,7 +13,7 @@ class ParentNamespaceAliasDocblockController
      * @Api\Annotation\RequiredPermissions(permissions={"ROLE_ADMIN"})
      */
     #[Route('/parent-namespace-alias', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

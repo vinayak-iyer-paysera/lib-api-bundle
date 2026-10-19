@@ -20,7 +20,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 abstract class FunctionalTestCase extends TestCase
 {
     /**
-     * @var TestKernel
+     * @var TestKernel|null
      */
     protected $kernel;
 

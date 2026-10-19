@@ -13,12 +13,12 @@ use Symfony\Component\Routing\Attribute\Route;
 class TwoActionsDocblockController
 {
     #[Route('/two-actions/first', methods: ['GET'])]
-    public function first()
+    public function first(): void
     {
     }
 
     #[Route('/two-actions/second', methods: ['GET'])]
-    public function second()
+    public function second(): void
     {
     }
 }

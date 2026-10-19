@@ -12,7 +12,7 @@ class UnusedAnnotationImportController
 {
     #[RequiredPermissions(permissions: ['ROLE_ADMIN'])]
     #[Route('/unused-annotation-import', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

@@ -11,7 +11,7 @@ trait AnnotationImportingTrait
     /**
      * @RequiredPermissions(permissions={"ROLE_USER"})
      */
-    public function show()
+    public function show(): void
     {
     }
 }

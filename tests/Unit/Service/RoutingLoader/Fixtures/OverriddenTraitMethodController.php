@@ -13,7 +13,7 @@ class OverriddenTraitMethodController
 
     #[RequiredPermissions(permissions: ['ROLE_ADMIN'])]
     #[Route('/overridden-trait-method', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

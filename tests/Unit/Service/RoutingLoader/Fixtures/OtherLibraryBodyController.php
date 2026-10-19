@@ -15,7 +15,7 @@ class OtherLibraryBodyController
      */
     #[RequiredPermissions(permissions: ['ROLE_ADMIN'])]
     #[Route('/other-library-body', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

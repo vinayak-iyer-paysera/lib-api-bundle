@@ -13,7 +13,7 @@ class NamespaceAliasDocblockController
      * @Rest\RequiredPermissions(permissions={"ROLE_ADMIN"})
      */
     #[Route('/namespace-alias', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

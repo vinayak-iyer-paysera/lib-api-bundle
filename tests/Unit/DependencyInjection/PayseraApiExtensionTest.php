@@ -61,11 +61,12 @@ class PayseraApiExtensionTest extends TestCase
         unset($withoutLocaleListener['paysera_api.listener.locale']);
         $withDocblockAnnotationsTurnedOn = $withoutLocaleListener;
         if (isset($withDocblockAnnotationsTurnedOn['paysera_api.loader.attribute'])) {
-            array_pop($withDocblockAnnotationsTurnedOn['paysera_api.loader.attribute']['calls']);
-            $withDocblockAnnotationsTurnedOn['paysera_api.loader.attribute']['calls'][] = [
-                'setDocblockAnnotationsEnabled',
-                [true],
-            ];
+            $withDocblockAnnotationsTurnedOn['paysera_api.loader.attribute']['calls'] = array_map(
+                static function (array $call): array {
+                    return $call[0] === 'setDocblockAnnotationsEnabled' ? [$call[0], [true]] : $call;
+                },
+                $withDocblockAnnotationsTurnedOn['paysera_api.loader.attribute']['calls']
+            );
         }
         $pagination = [
             'paysera_api.pagination.default_total_count_strategy' => 'optional',
