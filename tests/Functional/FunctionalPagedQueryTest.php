@@ -36,8 +36,8 @@ class FunctionalPagedQueryTest extends FunctionalTestCase
 
     private function makeTest(string $routes, Response $expectedResponse, Request $request, string $testCase): void
     {
-        $this->setUpFor($testCase);
         $this->skipUnlessRoutesAreLoaded($routes);
+        $this->setUpFor($testCase);
         $response = $this->handleRequest($request);
         $this->assertEquals(
             $expectedResponse->getContent(),

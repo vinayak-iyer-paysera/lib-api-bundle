@@ -54,6 +54,10 @@ abstract class FunctionalTestCase extends TestCase
 
     protected function tearDown(): void
     {
+        if ($this->kernel === null) {
+            return;
+        }
+
         $container = $this->kernel->getContainer();
         $this->kernel->shutdown();
         if ($container instanceof ResettableContainerInterface || $container instanceof ResetInterface) {
