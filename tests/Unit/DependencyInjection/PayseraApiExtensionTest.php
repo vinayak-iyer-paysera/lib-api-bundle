@@ -61,6 +61,7 @@ class PayseraApiExtensionTest extends TestCase
         unset($withoutLocaleListener['paysera_api.listener.locale']);
         $withDocblockAnnotationsTurnedOn = $withoutLocaleListener;
         if (isset($withDocblockAnnotationsTurnedOn['paysera_api.loader.attribute'])) {
+            array_pop($withDocblockAnnotationsTurnedOn['paysera_api.loader.attribute']['calls']);
             $withDocblockAnnotationsTurnedOn['paysera_api.loader.attribute']['calls'][] = [
                 'setDocblockAnnotationsEnabled',
                 [true],

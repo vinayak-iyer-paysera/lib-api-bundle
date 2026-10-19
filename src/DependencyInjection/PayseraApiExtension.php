@@ -258,10 +258,8 @@ class PayseraApiExtension extends Extension
                 'setRestRequestAttributeOptionsBuilder',
                 [new Reference('paysera_api.attributes.options_builder')]
             )
+            ->addMethodCall('setDocblockAnnotationsEnabled', [$docblockAnnotations])
         ;
-        if ($docblockAnnotations) {
-            $attributeLoader->addMethodCall('setDocblockAnnotationsEnabled', [true]);
-        }
 
         return ['paysera_api.loader.attribute' => $attributeLoader];
     }

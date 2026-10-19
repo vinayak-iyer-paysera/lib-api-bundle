@@ -283,6 +283,12 @@
                         "invalid_behavior": 1
                     }
                 ]
+            ],
+            [
+                "setDocblockAnnotationsEnabled",
+                [
+                    false
+                ]
             ]
         ],
         "decorated": [
