@@ -217,7 +217,11 @@ class RoutingAttributeLoader extends AttributeRouteControllerLoader
         $traits = array_values($declaringClass->getTraits());
         while ($traits !== []) {
             $trait = array_shift($traits);
-            if ($trait->getFileName() === $method->getFileName()) {
+            if (
+                $trait->getFileName() === $method->getFileName()
+                && $trait->getStartLine() <= $method->getStartLine()
+                && $method->getEndLine() <= $trait->getEndLine()
+            ) {
                 $scopes[] = $trait;
             }
             $traits = array_merge($traits, array_values($trait->getTraits()));

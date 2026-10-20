@@ -7,6 +7,7 @@ namespace Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader;
 use Composer\Autoload\ClassLoader;
 use Doctrine\Common\Annotations\AnnotationException;
 use Doctrine\Common\Annotations\Reader;
+use Exception;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryTestCase;
 use Paysera\Bundle\ApiBundle\Annotation\RequiredPermissions;
@@ -44,13 +45,13 @@ use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OtherLibr
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OtherLibraryBodyController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OverriddenTraitMethodController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\ParentNamespaceAliasDocblockController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\SameFileTraitController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\TraitDocblockOptionsController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\TwoActionsDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\UnimportedAnnotationDocblockController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\UnimportedNoteTagController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\UnusedAnnotationImportController;
 use ReflectionClass;
-use Throwable;
 use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Routing\Loader\AttributeClassLoader;
 
@@ -170,11 +171,14 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
     /**
      * @dataProvider loadWithoutAnnotationReaderFailsToReadDataProvider
      */
-    public function testLoadWithoutAnnotationReaderFailsToReadADocblock(string $controller, string $tag): void
-    {
+    public function testLoadWithoutAnnotationReaderFailsToReadADocblock(
+        string $controller,
+        string $tag,
+        string $action
+    ): void {
         $loader = $this->createLoader();
         $loader->setDocblockAnnotationsEnabled(true);
-        $method = $controller . '::show';
+        $method = $controller . '::' . $action;
 
         $this->assertSame(
             [
@@ -196,10 +200,22 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
             'annotation of the bundle that is not imported, refused as by Doctrine\'s reader' => [
                 UnimportedAnnotationDocblockController::class,
                 'RequiredPermissions',
+                'show',
             ],
             'tag that is not imported and not an annotation, refused as by Doctrine\'s reader' => [
                 UnimportedNoteTagController::class,
                 'note',
+                'show',
+            ],
+            'action of a trait used by another trait: Doctrine\'s reader does not see the trait\'s imports' => [
+                NestedTraitActionController::class,
+                'RequiredPermissions',
+                'show',
+            ],
+            'trait action renamed in the use statement: Doctrine\'s reader does not see the trait\'s imports' => [
+                AliasedTraitMethodController::class,
+                'RequiredPermissions',
+                'index',
             ],
         ];
     }
@@ -474,6 +490,10 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
                 ImportsNamedLikeTheAnnotationNamespaceController::class,
                 [ImportsNamedLikeTheAnnotationNamespaceController::class . '::show' => $adminOnly],
             ],
+            'action next to a trait that imports the annotations in another namespace block of its file' => [
+                SameFileTraitController::class,
+                [SameFileTraitController::class . '::show' => $adminOnly],
+            ],
             'action that overrides the method of a trait importing the annotations' => [
                 OverriddenTraitMethodController::class,
                 [OverriddenTraitMethodController::class . '::show' => $adminOnly],
@@ -743,13 +763,13 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
     }
 
     /**
-     * @return array{string, string, string|null}|null the class, message and previous class of the failure
+     * @return array{string, string, string|null}|null
      */
     private function describeLoadFailure(RoutingAttributeLoader $loader, string $controller): ?array
     {
         try {
             $loader->load($controller);
-        } catch (Throwable $exception) {
+        } catch (Exception $exception) {
             $previous = $exception->getPrevious();
 
             return [get_class($exception), $exception->getMessage(), $previous === null ? null : get_class($previous)];
