@@ -7,7 +7,6 @@ namespace Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader;
 use Composer\Autoload\ClassLoader;
 use Doctrine\Common\Annotations\AnnotationException;
 use Doctrine\Common\Annotations\Reader;
-use Exception;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryTestCase;
 use Paysera\Bundle\ApiBundle\Annotation\RequiredPermissions;
@@ -21,6 +20,7 @@ use Paysera\Bundle\ApiBundle\Service\RoutingLoader\RestRequestAttributeOptionsBu
 use Paysera\Bundle\ApiBundle\Service\RoutingLoader\RoutingAttributeLoader;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\Admin\SameNameController as AdminSameName;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\AliasedTraitMethodController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\AnnotationImportingTrait;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\Api\SameNameController as ApiSameName;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\AttributeOptionsController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\ClassAndActionDocblockController;
@@ -45,6 +45,7 @@ use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OtherLibr
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OtherLibraryBodyController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\OverriddenTraitMethodController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\ParentNamespaceAliasDocblockController;
+use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\SameFile\AnnotationImportingHelperTrait;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\SameFileTraitController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\TraitDocblockOptionsController;
 use Paysera\Bundle\ApiBundle\Tests\Unit\Service\RoutingLoader\Fixtures\TwoActionsDocblockController;
@@ -490,14 +491,6 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
                 ImportsNamedLikeTheAnnotationNamespaceController::class,
                 [ImportsNamedLikeTheAnnotationNamespaceController::class . '::show' => $adminOnly],
             ],
-            'action next to a trait that imports the annotations in another namespace block of its file' => [
-                SameFileTraitController::class,
-                [SameFileTraitController::class . '::show' => $adminOnly],
-            ],
-            'action that overrides the method of a trait importing the annotations' => [
-                OverriddenTraitMethodController::class,
-                [OverriddenTraitMethodController::class . '::show' => $adminOnly],
-            ],
             'annotation of the bundle with no import at all: not read, as an attribute with no import is not' => [
                 UnimportedAnnotationDocblockController::class,
                 [UnimportedAnnotationDocblockController::class . '::show' => null],
@@ -606,6 +599,18 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
                 MiscasedImportController::class,
                 MiscasedImportController::class,
                 'Paysera\\Bundle\\APIBundle\\Annotation\\RequiredPermissions',
+                'show',
+            ],
+            'trait that imports the annotations for another method: refused, as every trait counts' => [
+                SameFileTraitController::class,
+                AnnotationImportingHelperTrait::class,
+                $requiredPermissions,
+                'show',
+            ],
+            'action overriding the method of a trait that imports the annotations: refused, as every trait counts' => [
+                OverriddenTraitMethodController::class,
+                AnnotationImportingTrait::class,
+                $requiredPermissions,
                 'show',
             ],
             'unused import next to an attribute: refused, as the check reads only the imports' => [
@@ -769,7 +774,7 @@ class RoutingAttributeLoaderTest extends MockeryTestCase
     {
         try {
             $loader->load($controller);
-        } catch (Exception $exception) {
+        } catch (ConfigurationException | AnnotationException $exception) {
             $previous = $exception->getPrevious();
 
             return [get_class($exception), $exception->getMessage(), $previous === null ? null : get_class($previous)];

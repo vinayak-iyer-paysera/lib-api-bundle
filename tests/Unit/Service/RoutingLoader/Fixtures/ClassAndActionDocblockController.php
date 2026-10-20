@@ -16,7 +16,6 @@ class ClassAndActionDocblockController
     /**
      * @RequiredPermissions(permissions={"ROLE_ADMIN"})
      * @Validation(enabled=false)
-     * @return void
      */
     #[Route('/class-and-action', methods: ['GET'])]
     public function show(): void
