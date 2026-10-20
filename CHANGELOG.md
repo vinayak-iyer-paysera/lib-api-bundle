@@ -56,12 +56,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Breaking: where Symfony passes no annotation reader to the route loader (on Symfony 7, on Symfony 6.4 with
   `framework.annotations` disabled, and with FrameworkBundle 6.4 and `symfony/routing` 7), 1.x ignored the bundle's
   docblock annotations, `@RequiredPermissions` among them, without an error. With `docblock_annotations: false`, the
-  default, loading the routes now fails with a `ConfigurationException` when an action imports the bundle's
-  annotation namespace: set the option to `true` to apply the annotations, or replace them with attributes and remove
-  the import. An application that moves to one of these setups from one where Symfony's reader applied them (Symfony
-  3.4 to 6.4 with `framework.annotations` enabled) gets this error until it does one of the two. The check reads use
-  statements only, so it does not detect a docblock annotation of the bundle that no use statement imports, written
-  with its full class name or with no import at all, nor an annotation class of the application's own
+  default, loading the routes now fails with a `ConfigurationException` when an action imports the bundle's annotation
+  namespace: set the option to `true` to apply the annotations, or replace them with attributes and remove the import.
+  An application that moves to one of these setups from one where Symfony's reader applied them (Symfony 3.4 to 6.4 with
+  `framework.annotations` enabled) gets this error until it does one of the two. An action from a trait used by another
+  trait, or renamed with `as`, fails with `true` too, because Doctrine's reader resolves only the imports of the class
+  and of the trait that declares the action under its name: give such an action attributes, or import the annotations in
+  the class. The check reads use statements only, so it does not detect a docblock annotation of the bundle that no use
+  statement imports, written with its full class name or with no import at all, nor an annotation class of the
+  application's own
 - Breaking: from Symfony 6.4, where the bundle reads docblock annotations (Symfony passes its annotation reader, or
   `docblock_annotations` is `true`), a route configured with both docblock annotations and attributes of the bundle, or
   of the application's own classes implementing its interfaces, on the action or on its class, fails to load with a
