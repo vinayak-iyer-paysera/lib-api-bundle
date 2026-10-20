@@ -13,7 +13,7 @@ class DocblockOptionsOnAttributeRouteController
      * @RequiredPermissions(permissions={"ROLE_ADMIN"})
      */
     #[Route('/docblock-options', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

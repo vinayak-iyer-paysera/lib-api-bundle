@@ -13,7 +13,7 @@ trait DocblockOptionsTrait
      * @RequiredPermissions(permissions={"ROLE_ADMIN"})
      */
     #[Route('/from-trait', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

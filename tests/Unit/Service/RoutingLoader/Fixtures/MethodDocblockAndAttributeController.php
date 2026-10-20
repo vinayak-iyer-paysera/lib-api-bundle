@@ -15,7 +15,7 @@ class MethodDocblockAndAttributeController
      */
     #[RequiredPermissions(permissions: ['ROLE_ADMIN'])]
     #[Route('/method-docblock-and-attribute', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

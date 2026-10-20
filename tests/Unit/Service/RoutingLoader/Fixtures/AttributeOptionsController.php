@@ -11,7 +11,7 @@ class AttributeOptionsController
 {
     #[RequiredPermissions(permissions: ['ROLE_ADMIN'])]
     #[Route('/attribute-options', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

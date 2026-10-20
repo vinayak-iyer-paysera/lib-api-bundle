@@ -15,7 +15,7 @@ class IgnoredBundleAnnotationController
      * @RequiredPermissions(permissions={"ROLE_ADMIN"})
      */
     #[Route('/ignored-bundle-annotation', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

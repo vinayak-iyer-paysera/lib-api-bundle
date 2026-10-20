@@ -14,7 +14,7 @@ class OtherLibraryAnnotationController
      * @RequiredPermissions(permissions={"ROLE_ADMIN"})
      */
     #[Route('/other-library-annotation', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

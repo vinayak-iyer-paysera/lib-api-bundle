@@ -19,7 +19,7 @@ class ClassAndActionDocblockController
      * @return void
      */
     #[Route('/class-and-action', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

@@ -15,7 +15,7 @@ class ClassDocblockAndMethodAttributeController
 {
     #[Body(parameterName: 'data', denormalizationType: 'plain')]
     #[Route('/class-docblock-and-method-attribute', methods: ['POST'])]
-    public function update($data)
+    public function update($data): void
     {
     }
 }

@@ -12,7 +12,7 @@ class UnimportedAnnotationDocblockController
      * @RequiredPermissions(permissions={"ROLE_ADMIN"})
      */
     #[Route('/unimported', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

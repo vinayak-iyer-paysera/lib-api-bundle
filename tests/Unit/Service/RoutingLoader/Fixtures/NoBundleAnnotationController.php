@@ -9,7 +9,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class NoBundleAnnotationController
 {
     #[Route('/no-bundle-annotation', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }

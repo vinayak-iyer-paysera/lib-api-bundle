@@ -17,7 +17,7 @@ class IgnoredNoteTagController
      * @note kept for older clients
      */
     #[Route('/ignored-note-tag', methods: ['GET'])]
-    public function show()
+    public function show(): void
     {
     }
 }
