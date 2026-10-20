@@ -662,20 +662,20 @@ routes themselves need `#[Route]` with `type: attribute` imports, because Symfon
 bundle reads its docblock annotations with the annotation reader Symfony passes to the route loader. Where Symfony
 passes none (on Symfony 7, on Symfony 6.4 with `framework.annotations` disabled, and with FrameworkBundle 6.4 and
 `symfony/routing` 7), the bundle reads only the attributes unless `docblock_annotations` is `true`. Loading the routes
-then fails, naming the import, when the class of an action, the class that declares it or a trait its body comes from
+then fails, naming the import, when the class of an action, the class that declares it or any trait that class uses
 imports the bundle's annotation namespace, so that no imported docblock annotation, `@RequiredPermissions` among them,
-is skipped silently: set the option to `true`, or replace the annotations with attributes and remove the import. For an
-action from a trait used by another trait, or renamed with `as`, Doctrine's reader does not resolve the trait's imports
-either, so give it attributes. The check reads use statements only: an annotation of the bundle that no use statement
-imports, and an annotation class of your own, are not detected. With `true`, it reads the docblocks of each `#[Route]`
-action and of its class with Doctrine's `AnnotationReader`, the reader Symfony 6.4 also uses: loading the routes fails,
-naming the action, on a docblock tag it cannot resolve, such as one that is neither imported nor ignored (list it with
-`@IgnoreAnnotation` in the class docblock; an annotation of the bundle listed there is then skipped too, unless a `use`
-statement imports it or it is written with its full class name), and when OPcache is loaded with
-`opcache.save_comments=0`. Where Symfony passes its annotation reader, and before Symfony 6.4, the option has no effect.
-From Symfony 6.4, where the bundle reads docblock annotations, a route configured with both docblock annotations and
-attributes of the bundle, or of your own classes implementing its interfaces, on the action or on its class, fails to
-load, and with it every route: configure it with one of them.
+is skipped silently: set the option to `true`, or replace the annotations with attributes and remove the import. With
+`true`, Doctrine's reader does not see the imports of a trait used by another trait, or of a trait action renamed with
+`as`: give such an action attributes, or import the annotations in the class. The check reads use statements only: an
+annotation of the bundle that no use statement imports, and an annotation class of your own, are not detected. With
+`true`, it reads the docblocks of each `#[Route]` action and of its class with Doctrine's `AnnotationReader`, the reader
+Symfony 6.4 also uses: loading the routes fails, naming the action, on a docblock tag it cannot resolve, such as one
+that is neither imported nor ignored (list it with `@IgnoreAnnotation` in the class docblock; an annotation of the
+bundle listed there is then skipped too, unless a `use` statement imports it or it is written with its full class name),
+and when OPcache is loaded with `opcache.save_comments=0`. Where Symfony passes its annotation reader, and before
+Symfony 6.4, the option has no effect. From Symfony 6.4, where the bundle reads docblock annotations, a route configured
+with both docblock annotations and attributes of the bundle, or of your own classes implementing its interfaces, on the
+action or on its class, fails to load, and with it every route: configure it with one of them.
 The attributes take the same options, passed by name:
 `@RequiredPermissions(permissions={"ROLE_ADMIN"})` becomes `#[RequiredPermissions(permissions: ['ROLE_ADMIN'])]`.
 

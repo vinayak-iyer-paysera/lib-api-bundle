@@ -10,18 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for `psr/log` 3
 - `docblock_annotations` option (default `false`) for setups where Symfony passes no annotation reader to the route
   loader (on Symfony 7, on Symfony 6.4 with `framework.annotations` disabled, and with FrameworkBundle 6.4 and
-  `symfony/routing` 7). `false` reads only attributes, and loading the routes fails with a `ConfigurationException`
-  that names the import where the class of an action, the class that declares the action or a trait its body comes
-  from, at any depth, imports the bundle's annotation namespace `Paysera\Bundle\ApiBundle\Annotation`, a class in it
-  or a namespace above it, in any letter case and with or without a leading backslash, so that no imported docblock
-  annotation is skipped silently. `true` reads the docblock annotations of `#[Route]` actions and of
-  their classes with Doctrine's `AnnotationReader`, each class docblock once, and loading the routes fails with a
-  `ConfigurationException` that names the action where that reader fails: on a docblock tag it cannot resolve, such as
-  one that is neither imported nor ignored (`@note`; list it with `@IgnoreAnnotation` in the class docblock, where an
-  annotation of the bundle listed there is then skipped too, unless a `use` statement imports it or it is written with
-  its full class name), and when OPcache is loaded with `opcache.save_comments=0`. Where Symfony passes its annotation
-  reader, the bundle reads its docblock annotations with it, as before, whatever the option says. Before Symfony 6.4
-  the option has no effect
+  `symfony/routing` 7). `false` reads only attributes, and loading the routes fails with a `ConfigurationException` that
+  names the import where the class of an action, the class that declares the action or any trait that class uses, at any
+  depth, imports the bundle's annotation namespace `Paysera\Bundle\ApiBundle\Annotation`, a class in it or a namespace
+  above it, in any letter case and with or without a leading backslash, so that no imported docblock annotation is
+  skipped silently. `true` reads the docblock annotations of `#[Route]` actions and of their classes with Doctrine's
+  `AnnotationReader`, each class docblock once, and loading the routes fails with a `ConfigurationException` that names
+  the action where that reader fails: on a docblock tag it cannot resolve, such as one that is neither imported nor
+  ignored (`@note`; list it with `@IgnoreAnnotation` in the class docblock, where an annotation of the bundle listed
+  there is then skipped too, unless a `use` statement imports it or it is written with its full class name), and when
+  OPcache is loaded with `opcache.save_comments=0`. Where Symfony passes its annotation reader, the bundle reads its
+  docblock annotations with it, as before, whatever the option says. Before Symfony 6.4 the option has no effect
 
 ### Changed
 - The Symfony components the bundle uses directly are required explicitly: `symfony/config`,
@@ -59,12 +58,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default, loading the routes now fails with a `ConfigurationException` when an action imports the bundle's annotation
   namespace: set the option to `true` to apply the annotations, or replace them with attributes and remove the import.
   An application that moves to one of these setups from one where Symfony's reader applied them (Symfony 3.4 to 6.4 with
-  `framework.annotations` enabled) gets this error until it does one of the two. An action from a trait used by another
-  trait, or renamed with `as`, fails with `true` too, because Doctrine's reader resolves only the imports of the class
-  and of the trait that declares the action under its name: give such an action attributes, or import the annotations in
-  the class. The check reads use statements only, so it does not detect a docblock annotation of the bundle that no use
-  statement imports, written with its full class name or with no import at all, nor an annotation class of the
-  application's own
+  `framework.annotations` enabled) gets this error until it does one of the two. Every trait of the declaring class
+  counts, so a class whose trait imports the namespace is refused even for an action of its own. An action from a trait
+  used by another trait, or renamed with `as`, fails with `true` too, because Doctrine's reader reads only the imports
+  of the class and of the traits the class uses directly that are in the action's file and have a method of its name:
+  give such an action attributes, or set the option to `true` and import the annotations in the class. The check reads
+  use statements only, so it does not detect a docblock annotation of the bundle that no use statement imports, written
+  with its full class name or with no import at all, nor an annotation class of the application's own
 - Breaking: from Symfony 6.4, where the bundle reads docblock annotations (Symfony passes its annotation reader, or
   `docblock_annotations` is `true`), a route configured with both docblock annotations and attributes of the bundle, or
   of the application's own classes implementing its interfaces, on the action or on its class, fails to load with a
